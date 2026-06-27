@@ -26,9 +26,10 @@
         .preset-btn{background:#edf2f7;color:#2d3748;border:1px solid #cbd5e1;font-size:12px;padding:6px 8px}
         .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);padding:16px;align-items:center;justify-content:center;z-index:50}
         .modal.open{display:flex}
-        .modal-card{background:#fff;border-radius:10px;padding:12px;width:min(360px,100%);max-height:90vh;overflow:auto}
+        .modal-card{background:#fff;border-radius:10px;padding:12px;width:min(760px,96vw);max-height:90vh;overflow:auto}
         .modal-card input, .modal-card select {width:100%;box-sizing:border-box}
-        .preset-editor-row{display:grid;grid-template-columns:1.2fr 0.8fr 0.6fr 0.6fr 0.6fr 0.6fr;gap:6px;margin-bottom:8px;align-items:center}
+        .preset-editor-row{display:grid;grid-template-columns:1.2fr 0.8fr repeat(5,0.55fr);gap:6px;margin-bottom:8px;align-items:center}
+        .metric-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
         .chart-container{width:100%;overflow:hidden}
         svg{display:block}
         /* Sport zone responsive styles */
@@ -38,10 +39,16 @@
             .zone-grid{grid-template-columns:1fr}
             .zone-card{display:flex;align-items:center;justify-content:space-between;padding:10px;font-size:15px}
             input[type="number"], input[type="time"]{font-size:16px;padding:10px}
-            .modal-card{width:94%;padding:14px}
+            .modal-card{width:96vw;padding:14px}
             .preset-btn{padding:10px 12px;font-size:14px}
             .nav-bar{font-size:14px}
             .preset-editor-row{grid-template-columns:1fr}
+            .metric-grid-4{grid-template-columns:repeat(2,1fr)}
+        }
+        @media (orientation: landscape) and (max-height: 520px){
+            .modal{align-items:flex-start;padding:8px}
+            .modal-card{width:96vw;max-height:calc(100vh - 16px)}
+            .preset-editor-row{grid-template-columns:1.2fr 0.9fr repeat(5,0.55fr)}
         }
     </style>
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -85,9 +92,10 @@
             </div>
         </div>
         
-        <div class="card grid-3">
+        <div class="card metric-grid-4">
             <div><b id="p-total">0</b><br><span style="color:#4299e1">🥩 B</span></div>
             <div><b id="c-total">0</b><br><span style="color:#ecc94b">🍚 S</span></div>
+            <div><b id="sugar-total">0</b><br><span style="color:#d69e2e">🍯 Cukry</span></div>
             <div><b id="f-total">0</b><br><span style="color:#ed8936">🥑 T</span></div>
         </div>
 
@@ -136,6 +144,7 @@
                 <div class="grid-3">
                     <input type="number" id="f-p" placeholder="B (g)" min="0" step="0.1">
                     <input type="number" id="f-c" placeholder="S (g)" min="0" step="0.1">
+                    <input type="number" id="f-sugar" placeholder="Cukry (g)" min="0" step="0.1">
                     <input type="number" id="f-f" placeholder="T (g)" min="0" step="0.1">
                 </div>
                 <button type="button" id="btn-add-food">Pridať do dňa</button>
@@ -163,6 +172,8 @@
             <select id="s-template">
                 <option value="vlastne">-- Vlastný názov / Iné --</option>
                 <option value="volno">Volno 🛌</option>
+                <option value="fitko">Fitko / sila 🏋️</option>
+                <option value="indoor_bike">Indoor bike 🚲</option>
                 <option value="plavanie">Plavanie 🏊‍♂️</option>
                 <option value="bicykel">Bicykel 🚴‍♂️</option>
                 <option value="beh">Beh 🏃‍♂️</option>
@@ -173,6 +184,15 @@
             </select>
 
             <input type="text" id="s-title" placeholder="Názov tréningu alebo upresnenie">
+            <label style="font-size:12px; color:#718096;">Intenzita carbloadu</label>
+            <select id="s-load-intensity">
+                <option value="auto">Automaticky zo zón</option>
+                <option value="low">Nízka / technika</option>
+                <option value="medium">Stredná vytrvalosť</option>
+                <option value="high">Vysoká intenzita</option>
+                <option value="race">Súťaž / triathlon</option>
+                <option value="strength">Sila / fitko</option>
+            </select>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
                 <div>
                     <label style="font-size:12px; color:#718096;">Čas odjazdu</label>
@@ -215,6 +235,9 @@
             <div id="carb-prediction-box" class="info-box" style="display: none; background: #ebf8ff; margin-top:10px;">
                 💡 <b>Celkový čas:</b> <span id="predicted-duration">0</span> minút<br>
                 🔋 <b>Predikovaný Carbload:</b> <span id="predicted-carbs" style="color:var(--sports); font-weight:bold;">0</span>g sacharidov navyše.<br>
+                🍯 <b>Odporúčané cukry:</b> <span id="predicted-sugar" style="color:#d69e2e; font-weight:bold;">0</span>g<br>
+                🥩 <b>Bielkoviny po výkone:</b> <span id="predicted-protein" style="color:#2f855a; font-weight:bold;">0</span>g<br>
+                ⚙️ <b>Intenzita:</b> <span id="predicted-intensity" style="font-weight:bold;">-</span><br>
                 🔥 <b>Odhad spálenia:</b> <span id="predicted-kcal" style="color:#c53030; font-weight:bold;">0</span> kcal
             </div>
 
@@ -224,6 +247,23 @@
         <div class="card">
             <h3>📋 Plánované aktivity</h3>
             <div id="sport-list"></div>
+        </div>
+
+        <div class="card">
+            <h3>🏆 Sieň slávy / po výkone</h3>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+                <input type="number" id="real-kcal" placeholder="Reálne kcal" min="0">
+                <input type="number" id="real-duration" placeholder="Trvanie min" min="0">
+            </div>
+            <div class="zone-grid" style="margin-top:6px;">
+                <div class="zone-card"><span>Z1</span><input type="number" id="real-z1" placeholder="min" min="0"></div>
+                <div class="zone-card"><span>Z2</span><input type="number" id="real-z2" placeholder="min" min="0"></div>
+                <div class="zone-card"><span>Z3</span><input type="number" id="real-z3" placeholder="min" min="0"></div>
+                <div class="zone-card"><span>Z4</span><input type="number" id="real-z4" placeholder="min" min="0"></div>
+                <div class="zone-card"><span>Z5</span><input type="number" id="real-z5" placeholder="min" min="0"></div>
+            </div>
+            <button type="button" id="btn-after-session" class="btn-sports" style="margin-top:10px;">Prepočítať prvé hodiny</button>
+            <div id="after-session-result" class="info-box" style="display:none;background:#f0fff4;border-left-color:#48bb78;"></div>
         </div>
     </div>
     <!-- BOTTOM NAVIGÁCIA OPTIMALIZOVANÁ PRE IPHONE SE / FACE ID -->
@@ -265,6 +305,14 @@
             <h3 style="margin-top:0;">Upraviť tréning</h3>
             <div style="display:grid;gap:8px;">
                 <input type="text" id="edit-s-title" placeholder="Názov tréningu">
+                <select id="edit-s-load-intensity">
+                    <option value="auto">Automaticky zo zón</option>
+                    <option value="low">Nízka / technika</option>
+                    <option value="medium">Stredná vytrvalosť</option>
+                    <option value="high">Vysoká intenzita</option>
+                    <option value="race">Súťaž / triathlon</option>
+                    <option value="strength">Sila / fitko</option>
+                </select>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
                     <div>
                         <label style="font-size:12px;color:#718096;">Čas odjazdu</label>

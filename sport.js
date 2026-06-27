@@ -46,6 +46,31 @@ function getDayDifference(fromDate, targetDate) {
     return Math.round((target - from) / (1000 * 60 * 60 * 24));
 }
 
+function getSportCarbSlots(sport) {
+    const carbload = Number(sport.carbload) || 0;
+    const sugarTarget = Number(sport.sugarTarget) || 0;
+    if (!carbload) return [];
+
+    if (Array.isArray(sport.carbDistribution) && sport.carbDistribution.length) {
+        return sport.carbDistribution.map(slot => ({
+            offset: Number(slot.offset) || 0,
+            pct: Number(slot.pct) || 0,
+            carbs: Math.max(0, Number(slot.carbs) || 0),
+            sugar: Math.max(0, Number(slot.sugar) || 0)
+        }));
+    }
+
+    const sharePrevDay = Number(sport.carbSharePrevDay) || 30;
+    const prevDayCarbs = Math.round(carbload * sharePrevDay / 100);
+    const eventDayCarbs = Math.max(0, carbload - prevDayCarbs);
+    const prevDaySugar = Math.round(sugarTarget * sharePrevDay / 100);
+    const eventDaySugar = Math.max(0, sugarTarget - prevDaySugar);
+    return [
+        { offset: -1, pct: sharePrevDay, carbs: prevDayCarbs, sugar: prevDaySugar },
+        { offset: 0, pct: 100 - sharePrevDay, carbs: eventDayCarbs, sugar: eventDaySugar }
+    ];
+}
+
 function getCarbloadBonusForDate(date) {
     const sportsStore = Storage.get(STORAGE_KEYS.SPORTS);
     let totalBonus = 0;
@@ -54,23 +79,32 @@ function getCarbloadBonusForDate(date) {
         if (!Array.isArray(items)) return;
 
         items.forEach((sport) => {
-            const carbload = Number(sport.carbload) || 0;
-            if (!carbload) return;
-
-            const sharePrevDay = Number(sport.carbSharePrevDay) || 30;
-            const prevDayCarbs = Math.round(carbload * sharePrevDay / 100);
-            const eventDayCarbs = Math.max(0, carbload - prevDayCarbs);
             const diff = getDayDifference(date, sportDate);
-
-            if (diff === 1) {
-                totalBonus += prevDayCarbs;
-            } else if (diff === 0) {
-                totalBonus += eventDayCarbs;
-            }
+            getSportCarbSlots(sport).forEach(slot => {
+                if (diff === Math.abs(slot.offset)) totalBonus += slot.carbs;
+            });
         });
     });
 
     return totalBonus;
+}
+
+function getSugarTargetForDate(date) {
+    const sportsStore = Storage.get(STORAGE_KEYS.SPORTS);
+    let totalSugar = 0;
+
+    Object.entries(sportsStore).forEach(([sportDate, items]) => {
+        if (!Array.isArray(items)) return;
+
+        items.forEach((sport) => {
+            const diff = getDayDifference(date, sportDate);
+            getSportCarbSlots(sport).forEach(slot => {
+                if (diff === Math.abs(slot.offset)) totalSugar += slot.sugar;
+            });
+        });
+    });
+
+    return totalSugar;
 }
 
 function buildCarbloadPlanForDate(date) {
@@ -82,30 +116,30 @@ function buildCarbloadPlanForDate(date) {
         if (!Array.isArray(items)) return;
 
         items.forEach((sport) => {
-            const carbload = Number(sport.carbload) || 0;
-            if (!carbload) return;
-
-            const sharePrevDay = Number(sport.carbSharePrevDay) || 30;
-            const prevDayCarbs = Math.round(carbload * sharePrevDay / 100);
-            const eventDayCarbs = Math.max(0, carbload - prevDayCarbs);
             const diff = getDayDifference(date, sportDate);
+            const slots = getSportCarbSlots(sport);
 
-            if (diff === 1 || diff === 0) {
+            slots.forEach((slot) => {
+                if (diff !== Math.abs(slot.offset)) return;
                 const candidate = {
                     title: sport.title || 'Tréning',
                     startTime: sport.startTime || '08:00',
-                    carbload,
-                    prevDayCarbs,
-                    eventDayCarbs,
-                    kind: diff === 1 ? 'prev' : 'event',
-                    label: diff === 1 ? 'Dnes (30% carbloadu)' : 'Na dnes (zvyšok carbloadu)'
+                    carbload: Number(sport.carbload) || 0,
+                    carbs: slot.carbs,
+                    sugar: slot.sugar,
+                    protein: Number(sport.proteinTarget) || 0,
+                    intensityLabel: sport.intensityLabel || 'Intenzita podľa zón',
+                    kind: slot.offset < 0 ? 'prev' : 'event',
+                    label: slot.offset < 0
+                        ? `Dnes (${slot.pct || 0}% carbloadu, ${Math.abs(slot.offset)} dni pred výkonom)`
+                        : `Dnes (${slot.pct || 0}% v deň výkonu)`
                 };
 
                 if (Math.abs(diff) < bestDiff) {
                     bestPlan = candidate;
                     bestDiff = Math.abs(diff);
                 }
-            }
+            });
         });
     });
 
@@ -129,7 +163,7 @@ function buildMealTimesForPlan(plan) {
     if (!plan) return [];
 
     if (plan.kind === 'prev') {
-        const total = plan.prevDayCarbs;
+        const total = plan.carbs;
         return [
             { time: '10:00', grams: Math.round(total * 0.35) },
             { time: '15:00', grams: Math.round(total * 0.35) },
@@ -137,7 +171,7 @@ function buildMealTimesForPlan(plan) {
         ];
     }
 
-    const total = plan.eventDayCarbs;
+    const total = plan.carbs;
     const startMinutes = parseTimeToMinutes(plan.startTime);
     return [
         { time: formatMinutesToTime(startMinutes - 180), grams: Math.max(1, Math.round(total * 0.2)) },
@@ -159,15 +193,16 @@ function renderCarbloadPlanCard(date) {
     }
 
     const mealTimes = buildMealTimesForPlan(plan);
-    const carbs = plan.kind === 'prev' ? plan.prevDayCarbs : plan.eventDayCarbs;
+    const carbs = plan.carbs;
     const kcal = carbs * KCAL_PER_GRAM_CARB;
 
     if (summaryEl) {
-        summaryEl.innerHTML = `${plan.label}: <strong>${carbs}g sacharidov</strong> (${kcal} kcal)`;
+        summaryEl.innerHTML = `${plan.label}: <strong>${carbs}g sacharidov</strong>, z toho cukry <strong>${plan.sugar || 0}g</strong> (${kcal} kcal)<br><span style="font-size:12px;color:#718096;">${plan.intensityLabel}${plan.protein ? ` · po výkone bielkoviny ${plan.protein}g` : ''}</span>`;
     }
 
     if (timeEl) {
-        timeEl.innerHTML = mealTimes.map(slot => `<div><strong>${slot.time}</strong> — ${slot.grams}g sacharidov</div>`).join('');
+        const sugarRatio = carbs > 0 ? (Number(plan.sugar) || 0) / carbs : 0;
+        timeEl.innerHTML = mealTimes.map(slot => `<div><strong>${slot.time}</strong> — ${slot.grams}g sacharidov, cukry max ${Math.round(slot.grams * sugarRatio)}g</div>`).join('');
     }
 }
 
@@ -270,12 +305,14 @@ function initDashboard() {
         acc.kcal += Number(item.kcal) || 0;
         acc.p += Number(item.p) || 0;
         acc.c += Number(item.c) || 0;
+        acc.sugar += Math.min(Number(item.c) || 0, Math.max(0, Number(item.sugar) || 0));
         acc.f += Number(item.f) || 0;
         return acc;
-    }, { kcal: 0, p: 0, c: 0, f: 0 });
+    }, { kcal: 0, p: 0, c: 0, sugar: 0, f: 0 });
 
     // 2. Výpočet Carbload bonusu pre vybraný deň
     const carbloadBonusGrams = getCarbloadBonusForDate(date);
+    const sugarTargetGrams = getSugarTargetForDate(date);
 
     // 3. Výpočet dynamických cieľov
     const bioKcalTarget = getDailyKcalTarget();
@@ -299,6 +336,7 @@ function initDashboard() {
 
     setMacroText('p-total', foodTotals.p, BASE_TARGETS.p);
     setMacroText('c-total', foodTotals.c, dynamicCarbTarget);
+    setMacroText('sugar-total', foodTotals.sugar, sugarTargetGrams);
     setMacroText('f-total', foodTotals.f, BASE_TARGETS.f);
 
     // 5. Grafický progress bar (Kruh)

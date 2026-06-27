@@ -1,18 +1,80 @@
 // Pomocná funkcia pre získanie prednastavených hodnôt podľa typu aktivity
+const LOAD_INTENSITY_SETTINGS = {
+    low: { label: 'Nízka záťaž', sugarRatio: 0.18, proteinPerKg: 0.25, distribution: [{ offset: -1, pct: 60 }, { offset: 0, pct: 40 }] },
+    medium: { label: 'Stredná vytrvalosť', sugarRatio: 0.28, proteinPerKg: 0.28, distribution: [{ offset: -1, pct: 45 }, { offset: 0, pct: 55 }] },
+    high: { label: 'Vysoká intenzita', sugarRatio: 0.38, proteinPerKg: 0.30, distribution: [{ offset: -2, pct: 35 }, { offset: -1, pct: 55 }, { offset: 0, pct: 10 }] },
+    race: { label: 'Súťaž / triathlon', sugarRatio: 0.43, proteinPerKg: 0.30, distribution: [{ offset: -2, pct: 35 }, { offset: -1, pct: 55 }, { offset: 0, pct: 10 }] },
+    strength: { label: 'Sila / fitko', sugarRatio: 0.15, proteinPerKg: 0.35, distribution: [{ offset: 0, pct: 100 }] }
+};
+
+function getSelectedTemplate() {
+    return document.getElementById('s-template')?.value || 'vlastne';
+}
+
+function inferLoadIntensity(breakDown, selected = 'auto') {
+    if (selected && selected !== 'auto') return selected;
+
+    const z1 = Number(breakDown.z1) || 0;
+    const z2 = Number(breakDown.z2) || 0;
+    const z3 = Number(breakDown.z3) || 0;
+    const z4 = Number(breakDown.z4) || 0;
+    const z5 = Number(breakDown.z5) || 0;
+    const total = z1 + z2 + z3 + z4 + z5;
+    if (!total) return 'low';
+
+    const hardShare = (z4 + z5) / total;
+    const enduranceShare = (z2 + z3) / total;
+    const template = getSelectedTemplate();
+
+    if (template === 'fitko') return 'strength';
+    if (template === 'triathlon' || template === 'duathlon' || template === 'aquathlon') return hardShare >= 0.18 ? 'race' : 'high';
+    if (hardShare >= 0.25 || z5 >= 10) return 'high';
+    if (enduranceShare >= 0.5 || total >= 75) return 'medium';
+    return 'low';
+}
+
+function buildCarbDistribution(totalCarbs, totalSugar, intensityKey) {
+    const settings = LOAD_INTENSITY_SETTINGS[intensityKey] || LOAD_INTENSITY_SETTINGS.medium;
+    let usedCarbs = 0;
+    let usedSugar = 0;
+    return settings.distribution.map((slot, index) => {
+        const isLast = index === settings.distribution.length - 1;
+        const carbs = isLast ? Math.max(0, totalCarbs - usedCarbs) : Math.round(totalCarbs * slot.pct / 100);
+        const sugar = isLast ? Math.max(0, totalSugar - usedSugar) : Math.round(totalSugar * slot.pct / 100);
+        usedCarbs += carbs;
+        usedSugar += sugar;
+        return { ...slot, carbs, sugar };
+    });
+}
+
 function handleTemplateChange() {
     const template = document.getElementById('s-template').value;
     const titleInput = document.getElementById('s-title');
+    const intensityInput = document.getElementById('s-load-intensity');
     
     if (template !== 'vlastne') {
         // Automaticky predvyplní názov podľa šablóny
         titleInput.value = document.getElementById('s-template').options[document.getElementById('s-template').selectedIndex].text;
     }
 
+    if (template === 'fitko') {
+        if (intensityInput) intensityInput.value = 'strength';
+        const defaults = { 's-z1': 10, 's-z2': 20, 's-z3': 20, 's-z4': 10, 's-z5': 0 };
+        Object.entries(defaults).forEach(([id, value]) => { const el = document.getElementById(id); if (el && !el.value) el.value = value; });
+    } else if (template === 'indoor_bike') {
+        if (intensityInput) intensityInput.value = 'medium';
+    } else if (template === 'triathlon') {
+        if (intensityInput) intensityInput.value = 'race';
+    }
+
     // Automatický reset minút pri zmene šablóny, ak ide o Voľno
     if (template === 'volno') {
         ['s-z1', 's-z2', 's-z3', 's-z4', 's-z5'].forEach(id => document.getElementById(id).value = 0);
+        if (intensityInput) intensityInput.value = 'low';
         predictCarbload();
     }
+
+    predictCarbload();
 }
 
 // Načítanie uloženého bio profilu (localStorage)
@@ -34,6 +96,7 @@ function predictCarbload() {
     const breakDown = {};
     let totalDuration = 0;
     let totalCarbsRaw = 0;
+    let totalKcalRaw = 0;
 
     // Základné MET odhady pre zóny (približné)
     const ZONE_MET = { z1: 3, z2: 5, z3: 8, z4: 10, z5: 12 };
@@ -62,26 +125,41 @@ function predictCarbload() {
         // grams per minute = (kcal per min * carb fraction) / 4 (kcal per gram carb)
         const carbsPerMin = (kcalMin * carbFrac) / 4;
         totalCarbsRaw += minutes * carbsPerMin;
+        totalKcalRaw += minutes * kcalMin;
     });
 
-    const totalCarbsNeeded = Math.round(totalCarbsRaw);
-    const totalKcalBurned = Math.round(totalDuration * (bio ? (Number(bio.weight) || 70) * 0.08 : 8));
+    const selectedIntensity = document.getElementById('s-load-intensity')?.value || 'auto';
+    const intensityKey = inferLoadIntensity(breakDown, selectedIntensity);
+    const intensity = LOAD_INTENSITY_SETTINGS[intensityKey] || LOAD_INTENSITY_SETTINGS.medium;
+    const template = getSelectedTemplate();
+    const strengthModifier = template === 'fitko' || intensityKey === 'strength' ? 0.55 : 1;
+    const totalCarbsNeeded = Math.round(totalCarbsRaw * strengthModifier);
+    const totalSugarNeeded = Math.round(totalCarbsNeeded * intensity.sugarRatio);
+    const totalProteinNeeded = Math.round(weight * intensity.proteinPerKg);
+    const totalKcalBurned = Math.round(totalKcalRaw || totalDuration * (bio ? (Number(bio.weight) || 70) * 0.08 : 8));
+    const carbDistribution = buildCarbDistribution(totalCarbsNeeded, totalSugarNeeded, intensityKey);
     const box = document.getElementById('carb-prediction-box');
 
     if (totalDuration <= 0) {
         if (box) box.style.display = 'none';
-        return { totalCarbsNeeded: 0, totalDuration, breakDown };
+        return { totalCarbsNeeded: 0, totalSugarNeeded: 0, totalProteinNeeded: 0, totalDuration, totalKcalBurned: 0, breakDown, intensityKey, intensityLabel: intensity.label, carbDistribution };
     }
 
     const carbsEl = document.getElementById('predicted-carbs');
     const durationEl = document.getElementById('predicted-duration');
     const kcalEl = document.getElementById('predicted-kcal');
+    const sugarEl = document.getElementById('predicted-sugar');
+    const proteinEl = document.getElementById('predicted-protein');
+    const intensityEl = document.getElementById('predicted-intensity');
     if (carbsEl) carbsEl.textContent = totalCarbsNeeded;
     if (durationEl) durationEl.textContent = totalDuration;
     if (kcalEl) kcalEl.textContent = totalKcalBurned;
+    if (sugarEl) sugarEl.textContent = totalSugarNeeded;
+    if (proteinEl) proteinEl.textContent = totalProteinNeeded;
+    if (intensityEl) intensityEl.textContent = intensity.label;
     if (box) box.style.display = 'block';
 
-    return { totalCarbsNeeded, totalDuration, totalKcalBurned, breakDown };
+    return { totalCarbsNeeded, totalSugarNeeded, totalProteinNeeded, totalDuration, totalKcalBurned, breakDown, intensityKey, intensityLabel: intensity.label, carbDistribution };
 }
 
 // 3. Načítanie športového dňa z kalendára do listu
@@ -119,7 +197,7 @@ function loadSportDay() {
         const zonesText = zones.length ? zones.join(', ') : 'Žiadna intenzita';
 
         html += '<div class="list-item" style="border-left:4px solid var(--sports);padding-left:8px;margin-top:4px;display:flex;justify-content:space-between;align-items:center;">';
-        html += '<div><strong>' + escapeHtml(item.title || '') + '</strong> (' + (item.duration || 0) + ' min)<br><span style="font-size:11px;color:#718096;">Rozpis: ' + escapeHtml(zonesText) + '</span><br><span style="font-size:12px;color:#2b6cb0;font-weight:700;">🔋 Carbload: +' + (item.carbload || 0) + 'g</span></div>';
+        html += '<div><strong>' + escapeHtml(item.title || '') + '</strong> (' + (item.duration || 0) + ' min)<br><span style="font-size:11px;color:#718096;">Rozpis: ' + escapeHtml(zonesText) + '</span><br><span style="font-size:12px;color:#2b6cb0;font-weight:700;">🔋 Carbload: +' + (item.carbload || 0) + 'g</span> <span style="font-size:12px;color:#d69e2e;font-weight:700;">🍯 ' + (item.sugarTarget || 0) + 'g cukry</span><br><span style="font-size:11px;color:#4a5568;">' + escapeHtml(item.intensityLabel || 'Intenzita podľa zón') + ' · 🥩 ' + (item.proteinTarget || 0) + 'g po výkone</span></div>';
         html += '<div style="display:flex;gap:8px;"><button class="preset-btn" data-action="edit" data-id="' + (item.id || item.createdAt) + '">Upraviť</button><button class="preset-btn" data-action="delete" data-id="' + (item.id || item.createdAt) + '" style="background:#e53e3e;color:#fff;">Zmazať</button></div>';
         html += '</div>';
     }
@@ -155,6 +233,7 @@ function openEditSportModal(date, itemId) {
     if (!item) return alert('Nenájdený tréning.');
 
     document.getElementById('edit-s-title').value = item.title || '';
+    document.getElementById('edit-s-load-intensity').value = item.intensityKey || 'auto';
     document.getElementById('edit-s-start-time').value = item.startTime || '08:00';
     document.getElementById('edit-s-carb-share-prev-day').value = item.carbSharePrevDay ?? 30;
     ['z1','z2','z3','z4','z5'].forEach((z, idx) => {
@@ -174,6 +253,7 @@ function openEditSportModal(date, itemId) {
             item.breakDown[z] = v;
         });
         item.title = document.getElementById('edit-s-title').value.trim() || item.title;
+        item.intensityKey = document.getElementById('edit-s-load-intensity').value || item.intensityKey || 'auto';
         item.startTime = document.getElementById('edit-s-start-time').value || item.startTime;
         item.carbSharePrevDay = Number(document.getElementById('edit-s-carb-share-prev-day').value) || item.carbSharePrevDay;
 
@@ -185,11 +265,20 @@ function openEditSportModal(date, itemId) {
                 const el = document.getElementById('s-' + z);
                 if (el) el.value = item.breakDown[z] || 0;
             });
+            const originalIntensity = document.getElementById('s-load-intensity')?.value;
+            const intensityEl = document.getElementById('s-load-intensity');
+            if (intensityEl) intensityEl.value = item.intensityKey;
             const p = predictCarbload();
+            if (intensityEl) intensityEl.value = originalIntensity || 'auto';
             return p;
         })();
 
         item.carbload = updatedPred.totalCarbsNeeded || item.carbload;
+        item.sugarTarget = updatedPred.totalSugarNeeded || 0;
+        item.proteinTarget = updatedPred.totalProteinNeeded || 0;
+        item.intensityKey = updatedPred.intensityKey || item.intensityKey;
+        item.intensityLabel = updatedPred.intensityLabel || item.intensityLabel;
+        item.carbDistribution = updatedPred.carbDistribution || item.carbDistribution;
         item.kcalBurned = updatedPred.totalKcalBurned || item.kcalBurned;
         item.duration = updatedPred.totalDuration || item.duration;
 
@@ -220,6 +309,8 @@ function addSportItem() {
     const titleInput = document.getElementById('s-title');
     const startTimeInput = document.getElementById('s-start-time');
     const carbShareInput = document.getElementById('s-carb-share-prev-day');
+    const templateInput = document.getElementById('s-template');
+    const intensityInput = document.getElementById('s-load-intensity');
     
     if (!dateInput || !dateInput.value) {
         alert('Prosím, vyberte platný dátum aktivity.');
@@ -247,8 +338,14 @@ function addSportItem() {
         title,
         duration: prediction.totalDuration ?? 0,
         carbload: prediction.totalCarbsNeeded ?? 0,
+        sugarTarget: prediction.totalSugarNeeded ?? 0,
+        proteinTarget: prediction.totalProteinNeeded ?? 0,
         kcalBurned: prediction.totalKcalBurned ?? 0,
         breakDown: prediction.breakDown ?? null,
+        template: templateInput?.value || 'vlastne',
+        intensityKey: prediction.intensityKey || intensityInput?.value || 'auto',
+        intensityLabel: prediction.intensityLabel || '',
+        carbDistribution: prediction.carbDistribution || [],
         startTime: startTimeInput?.value || '08:00',
         carbSharePrevDay: Number(carbShareInput?.value) || 30,
         createdAt: new Date().toISOString()
@@ -279,6 +376,8 @@ function addSportItem() {
         if (carbShareInput) carbShareInput.value = '30';
         const template = document.getElementById('s-template');
         if (template) template.value = 'vlastne';
+        const intensity = document.getElementById('s-load-intensity');
+        if (intensity) intensity.value = 'auto';
         ['s-z1', 's-z2', 's-z3', 's-z4', 's-z5'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
@@ -289,6 +388,34 @@ function addSportItem() {
     const predictionBox = document.getElementById('carb-prediction-box');
     if (predictionBox) predictionBox.style.display = 'none';
     console.groupEnd();
+}
+
+function calculateAfterSessionRecovery() {
+    const kcal = Math.max(0, Number(document.getElementById('real-kcal')?.value) || 0);
+    const duration = Math.max(0, Number(document.getElementById('real-duration')?.value) || 0);
+    const breakDown = {};
+    ['z1','z2','z3','z4','z5'].forEach(z => {
+        breakDown[z] = Math.max(0, Number(document.getElementById('real-' + z)?.value) || 0);
+    });
+
+    const intensityKey = inferLoadIntensity(breakDown, 'auto');
+    const settings = LOAD_INTENSITY_SETTINGS[intensityKey] || LOAD_INTENSITY_SETTINGS.medium;
+    const hardMinutes = (breakDown.z4 || 0) + (breakDown.z5 || 0);
+    const carbBase = kcal > 0 ? kcal / 4 : duration * 0.7;
+    const carbMultiplier = intensityKey === 'strength' ? 0.35 : hardMinutes > 20 ? 0.55 : 0.42;
+    const carbsFirstHours = Math.round(carbBase * carbMultiplier);
+    const sugarFirstHour = Math.round(carbsFirstHours * settings.sugarRatio);
+    const bio = getUserBio();
+    const weight = (bio && Number(bio.weight)) || 70;
+    const protein = Math.round(weight * settings.proteinPerKg);
+    const result = document.getElementById('after-session-result');
+    if (!result) return;
+
+    result.innerHTML = '<strong>' + escapeHtml(settings.label) + '</strong><br>' +
+        'Prvá hodina: ' + Math.round(carbsFirstHours * 0.45) + 'g sacharidov, z toho max ' + Math.round(sugarFirstHour * 0.6) + 'g cukrov.<br>' +
+        'Ďalšie 2-3 hodiny: ' + Math.max(0, carbsFirstHours - Math.round(carbsFirstHours * 0.45)) + 'g sacharidov, z toho max ' + Math.max(0, sugarFirstHour - Math.round(sugarFirstHour * 0.6)) + 'g cukrov.<br>' +
+        'Bielkoviny po výkone: ' + protein + 'g. Ak bol tréning ľahší než plán, drž cukor nižšie a doplň skôr normálnym jedlom.';
+    result.style.display = 'block';
 }
 
 // 5. Zmazanie športovej aktivity (upravené na mazanie cez unikátne ID)
@@ -366,4 +493,3 @@ function safelyRefreshUI() {
         console.error('Chyba pri refreshovaní UI športov:', err);
     }
 }
-

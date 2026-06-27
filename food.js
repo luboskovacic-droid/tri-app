@@ -1,41 +1,47 @@
 const FOOD_PRESET_STORAGE_KEY = 'tri_food_presets_v1';
 
 const DEFAULT_FOOD_PRESETS = [
-    { name: 'Ovsené vločky', category: 'Karbóny', kcal: 389, p: 16.9, c: 66.3, f: 6.9 },
-    { name: 'Jogurt natural', category: 'Mliečne', kcal: 61, p: 3.5, c: 4.7, f: 3.0 },
-    { name: 'Tvaroh', category: 'Mliečne', kcal: 98, p: 11.1, c: 3.3, f: 4.3 },
-    { name: 'Mlieko', category: 'Mliečne', kcal: 61, p: 3.2, c: 4.8, f: 3.6 },
-    { name: 'Vajcia', category: 'Proteíny', kcal: 155, p: 13.0, c: 1.1, f: 11.0 },
-    { name: 'Ryža', category: 'Karbóny', kcal: 130, p: 2.7, c: 28.0, f: 0.3 },
-    { name: 'Těstoviny', category: 'Karbóny', kcal: 131, p: 4.8, c: 25.0, f: 1.1 },
-    { name: 'Kuracie prsia', category: 'Proteíny', kcal: 165, p: 31.0, c: 0.0, f: 3.6 },
-    { name: 'Hovädzina', category: 'Proteíny', kcal: 250, p: 26.0, c: 0.0, f: 15.0 },
-    { name: 'Tuniak', category: 'Proteíny', kcal: 144, p: 24.0, c: 0.0, f: 6.0 },
-    { name: 'Šunka', category: 'Proteíny', kcal: 150, p: 20.0, c: 1.0, f: 7.0 },
-    { name: 'Chlieb', category: 'Karbóny', kcal: 265, p: 9.0, c: 49.0, f: 3.2 },
-    { name: 'Banán', category: 'Ovocie', kcal: 89, p: 1.1, c: 22.8, f: 0.3 },
-    { name: 'Jablko', category: 'Ovocie', kcal: 52, p: 0.3, c: 14.0, f: 0.2 },
-    { name: 'Arašidy', category: 'Ostatné', kcal: 567, p: 25.0, c: 16.0, f: 49.0 },
-    { name: 'Avokádo', category: 'Ovocie', kcal: 160, p: 2.0, c: 8.5, f: 14.7 },
-    { name: 'Zemiaky', category: 'Karbóny', kcal: 77, p: 2.0, c: 17.0, f: 0.1 },
-    { name: 'Paradajky', category: 'Zelenina', kcal: 18, p: 0.9, c: 3.9, f: 0.2 },
-    { name: 'Cuketa', category: 'Zelenina', kcal: 17, p: 1.2, c: 3.1, f: 0.3 },
-    { name: 'Müsli', category: 'Karbóny', kcal: 380, p: 8.0, c: 70.0, f: 6.0 },
-    { name: 'Syr', category: 'Mliečne', kcal: 402, p: 25.0, c: 1.3, f: 33.0 },
-    { name: 'Kuskus', category: 'Karbóny', kcal: 358, p: 13.0, c: 72.0, f: 0.6 },
-    { name: 'Quinoa', category: 'Karbóny', kcal: 120, p: 4.4, c: 21.3, f: 1.9 },
-    { name: 'Lentilky', category: 'Proteíny', kcal: 116, p: 9.0, c: 20.0, f: 0.4 }
+    { name: 'Ovsené vločky', category: 'Karbóny', kcal: 389, p: 16.9, c: 66.3, sugar: 0.9, f: 6.9 },
+    { name: 'Jogurt natural', category: 'Mliečne', kcal: 61, p: 3.5, c: 4.7, sugar: 4.7, f: 3.0 },
+    { name: 'Tvaroh', category: 'Mliečne', kcal: 98, p: 11.1, c: 3.3, sugar: 3.3, f: 4.3 },
+    { name: 'Mlieko', category: 'Mliečne', kcal: 61, p: 3.2, c: 4.8, sugar: 4.8, f: 3.6 },
+    { name: 'Vajcia', category: 'Proteíny', kcal: 155, p: 13.0, c: 1.1, sugar: 1.1, f: 11.0 },
+    { name: 'Ryža', category: 'Karbóny', kcal: 130, p: 2.7, c: 28.0, sugar: 0.1, f: 0.3 },
+    { name: 'Těstoviny', category: 'Karbóny', kcal: 131, p: 4.8, c: 25.0, sugar: 0.8, f: 1.1 },
+    { name: 'Kuracie prsia', category: 'Proteíny', kcal: 165, p: 31.0, c: 0.0, sugar: 0.0, f: 3.6 },
+    { name: 'Hovädzina', category: 'Proteíny', kcal: 250, p: 26.0, c: 0.0, sugar: 0.0, f: 15.0 },
+    { name: 'Tuniak', category: 'Proteíny', kcal: 144, p: 24.0, c: 0.0, sugar: 0.0, f: 6.0 },
+    { name: 'Šunka', category: 'Proteíny', kcal: 150, p: 20.0, c: 1.0, sugar: 0.5, f: 7.0 },
+    { name: 'Chlieb', category: 'Karbóny', kcal: 265, p: 9.0, c: 49.0, sugar: 5.0, f: 3.2 },
+    { name: 'Banán', category: 'Ovocie', kcal: 89, p: 1.1, c: 22.8, sugar: 12.2, f: 0.3 },
+    { name: 'Jablko', category: 'Ovocie', kcal: 52, p: 0.3, c: 14.0, sugar: 10.4, f: 0.2 },
+    { name: 'Arašidy', category: 'Ostatné', kcal: 567, p: 25.0, c: 16.0, sugar: 4.0, f: 49.0 },
+    { name: 'Avokádo', category: 'Ovocie', kcal: 160, p: 2.0, c: 8.5, sugar: 0.7, f: 14.7 },
+    { name: 'Zemiaky', category: 'Karbóny', kcal: 77, p: 2.0, c: 17.0, sugar: 0.8, f: 0.1 },
+    { name: 'Müsli', category: 'Karbóny', kcal: 380, p: 8.0, c: 70.0, sugar: 18.0, f: 6.0 },
+    { name: 'Syr', category: 'Mliečne', kcal: 402, p: 25.0, c: 1.3, sugar: 0.5, f: 33.0 },
+    { name: 'Kuskus', category: 'Karbóny', kcal: 358, p: 13.0, c: 72.0, sugar: 0.1, f: 0.6 },
+    { name: 'Quinoa', category: 'Karbóny', kcal: 120, p: 4.4, c: 21.3, sugar: 0.9, f: 1.9 },
+    { name: 'Lentilky', category: 'Proteíny', kcal: 116, p: 9.0, c: 20.0, sugar: 1.8, f: 0.4 }
 ];
+
+function normalizeFoodPreset(preset) {
+    const carbs = Number(preset.c) || 0;
+    const sugar = Math.min(carbs, Math.max(0, Number(preset.sugar) || 0));
+    return { ...preset, sugar, category: preset.category || 'Ostatné' };
+}
 
 function getFoodPresets() {
     try {
         const raw = localStorage.getItem(FOOD_PRESET_STORAGE_KEY);
-        if (!raw) return DEFAULT_FOOD_PRESETS;
+        if (!raw) return DEFAULT_FOOD_PRESETS.map(normalizeFoodPreset);
         const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed) || !parsed.length) return DEFAULT_FOOD_PRESETS;
-        return parsed.map((preset) => ({ ...preset, category: preset.category || 'Ostatné' }));
+        if (!Array.isArray(parsed) || !parsed.length) return DEFAULT_FOOD_PRESETS.map(normalizeFoodPreset);
+        return parsed
+            .filter((preset) => preset.category !== 'Zelenina')
+            .map(normalizeFoodPreset);
     } catch (e) {
-        return DEFAULT_FOOD_PRESETS;
+        return DEFAULT_FOOD_PRESETS.map(normalizeFoodPreset);
     }
 }
 
@@ -115,7 +121,7 @@ function renderPresetEditor(filter = 'Všetky') {
         const row = document.createElement('div');
         row.className = 'preset-editor-row';
         row.dataset.presetIndex = originalIndex >= 0 ? originalIndex : visibleIndex;
-        row.style.cssText = 'display:grid;grid-template-columns:1.2fr 0.8fr 0.6fr 0.6fr 0.6fr 0.6fr;gap:6px;margin-bottom:8px;align-items:center;';
+        row.style.cssText = 'display:grid;grid-template-columns:1.2fr 0.8fr repeat(5,0.55fr);gap:6px;margin-bottom:8px;align-items:center;';
 
         const nameInput = document.createElement('input');
         nameInput.value = preset.name;
@@ -147,6 +153,14 @@ function renderPresetEditor(filter = 'Všetky') {
         cInput.dataset.field = 'c';
         cInput.dataset.index = row.dataset.presetIndex;
 
+        const sugarInput = document.createElement('input');
+        sugarInput.type = 'number';
+        sugarInput.step = '0.1';
+        sugarInput.value = preset.sugar || 0;
+        sugarInput.placeholder = 'Cukry';
+        sugarInput.dataset.field = 'sugar';
+        sugarInput.dataset.index = row.dataset.presetIndex;
+
         const fInput = document.createElement('input');
         fInput.type = 'number';
         fInput.step = '0.1';
@@ -154,7 +168,7 @@ function renderPresetEditor(filter = 'Všetky') {
         fInput.dataset.field = 'f';
         fInput.dataset.index = row.dataset.presetIndex;
 
-        row.append(nameInput, categoryInput, kcalInput, pInput, cInput, fInput);
+        row.append(nameInput, categoryInput, kcalInput, pInput, cInput, sugarInput, fInput);
         list.appendChild(row);
     });
 }
@@ -164,6 +178,7 @@ function applyFoodPreset(preset) {
     const kcalInput = DOM.get('f-kcal');
     const pInput = DOM.get('f-p');
     const cInput = DOM.get('f-c');
+    const sugarInput = DOM.get('f-sugar');
     const fInput = DOM.get('f-f');
     const weightInput = DOM.get('f-weight');
 
@@ -171,6 +186,7 @@ function applyFoodPreset(preset) {
     if (kcalInput) kcalInput.value = preset.kcal;
     if (pInput) pInput.value = preset.p;
     if (cInput) cInput.value = preset.c;
+    if (sugarInput) sugarInput.value = preset.sugar || 0;
     if (fInput) fInput.value = preset.f;
     if (weightInput) weightInput.value = 100;
 
@@ -214,7 +230,8 @@ function loadFoodDay() {
 
         const macrosSpan = document.createElement('span');
         macrosSpan.style.cssText = 'font-size: 11px; color: #718096;';
-        macrosSpan.textContent = `B: ${item.p.toFixed(1)}g | S: ${item.c.toFixed(1)}g | T: ${item.f.toFixed(1)}g`;
+        const sugar = Math.min(Number(item.c) || 0, Math.max(0, Number(item.sugar) || 0));
+        macrosSpan.textContent = `B: ${item.p.toFixed(1)}g | S: ${item.c.toFixed(1)}g | Cukry: ${sugar.toFixed(1)}g | T: ${item.f.toFixed(1)}g`;
 
         leftDiv.append(titleEl, weightEl, br, macrosSpan);
 
@@ -254,6 +271,7 @@ function addFoodItem() {
     const kcalInput = DOM.get('f-kcal');
     const pInput = DOM.get('f-p');
     const cInput = DOM.get('f-c');
+    const sugarInput = DOM.get('f-sugar');
     const fInput = DOM.get('f-f');
 
     const name = nameInput?.value.trim() || 'Jedlo';
@@ -263,13 +281,17 @@ function addFoodItem() {
     // Extrakcia hodnôt na 100g s ochranou proti záporným číslam
     const getNutrient = (input) => Math.max(0, parseFloat(input?.value) || 0);
 
+    const carbs = Math.round(getNutrient(cInput) * multiplier * 10) / 10;
+    const sugar = Math.min(carbs, Math.round(getNutrient(sugarInput) * multiplier * 10) / 10);
+
     const newItem = {
         id: crypto.randomUUID?.() || Date.now().toString(),
         name,
         weight,
         kcal: Math.round(getNutrient(kcalInput) * multiplier),
         p: Math.round(getNutrient(pInput) * multiplier * 10) / 10,
-        c: Math.round(getNutrient(cInput) * multiplier * 10) / 10,
+        c: carbs,
+        sugar,
         f: Math.round(getNutrient(fInput) * multiplier * 10) / 10,
         createdAt: new Date().toISOString()
     };
@@ -289,7 +311,7 @@ function addFoodItem() {
     if (form) {
         form.reset();
     } else {
-        ['f-name', 'f-kcal', 'f-weight', 'f-p', 'f-c', 'f-f'].forEach(id => {
+        ['f-name', 'f-kcal', 'f-weight', 'f-p', 'f-c', 'f-sugar', 'f-f'].forEach(id => {
             const el = DOM.get(id);
             if (el) el.value = '';
         });
@@ -354,18 +376,24 @@ window.addEventListener('DOMContentLoaded', () => {
             const index = Number(row.dataset.presetIndex);
             const inputs = row.querySelectorAll('input');
             if (!updated[index]) return;
+            const kcal = Math.max(0, Number(inputs[2]?.value) || 0);
+            const protein = Math.max(0, Number(inputs[3]?.value) || 0);
+            const carbs = Math.max(0, Number(inputs[4]?.value) || 0);
+            const sugar = Math.min(carbs, Math.max(0, Number(inputs[5]?.value) || 0));
+            const fat = Math.max(0, Number(inputs[6]?.value) || 0);
             updated[index] = {
                 ...updated[index],
                 name: inputs[0]?.value?.trim() || updated[index].name,
                 category: inputs[1]?.value?.trim() || updated[index].category || 'Ostatné',
-                kcal: Number(inputs[2]?.value) || updated[index].kcal,
-                p: Number(inputs[3]?.value) || updated[index].p,
-                c: Number(inputs[4]?.value) || updated[index].c,
-                f: Number(inputs[5]?.value) || updated[index].f
+                kcal,
+                p: protein,
+                c: carbs,
+                sugar,
+                f: fat
             };
         });
 
-        saveFoodPresets(updated);
+        saveFoodPresets(updated.map(normalizeFoodPreset));
         renderFoodPresets();
         modal?.classList.remove('open');
     });
