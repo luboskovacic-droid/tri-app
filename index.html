@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kcal & Sport PWA</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%233182ce'/%3E%3Ctext x='50%25' y='55%25' font-size='40' text-anchor='middle' fill='%23fff' font-family='system-ui, sans-serif'%3E⚡%3C/text%3E%3C/svg%3E">
+    <style>
+        :root{--primary:#2b6cb0;--sports:#3182ce;--muted:#718096;--bg:#fff}
+        html,body{height:100%;margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+        .view{display:none;padding:12px}
+        .view.active{display:block}
+        .header{display:flex;justify-content:space-between;align-items:center}
+        h2{margin:0 0 8px 0;font-size:18px}
+        .card{background:#f8fafc;padding:10px;border-radius:8px;margin:8px 0}
+        .nav-bar{position:fixed;left:0;right:0;bottom:0;display:flex;border-top:1px solid #e2e8f0;background:#fff}
+        .tab-btn{flex:1;padding:10px;border:0;background:none;font-size:13px}
+        .tab-btn.active{color:var(--primary);font-weight:700}
+        .circle-progress{width:120px;height:120px;border-radius:999px;display:flex;align-items:center;justify-content:center;margin:8px 0}
+        .circle-inner{text-align:center}
+        .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+        input,select,button{font:inherit;padding:8px;border:1px solid #e2e8f0;border-radius:6px}
+        button{background:var(--primary);color:#fff;border:0}
+        .preset-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+        .preset-btn{background:#edf2f7;color:#2d3748;border:1px solid #cbd5e1;font-size:12px;padding:6px 8px}
+        .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);padding:16px;align-items:center;justify-content:center;z-index:50}
+        .modal.open{display:flex}
+        .modal-card{background:#fff;border-radius:10px;padding:12px;width:min(360px,100%);max-height:90vh;overflow:auto}
+        .modal-card input, .modal-card select {width:100%;box-sizing:border-box}
+        .preset-editor-row{display:grid;grid-template-columns:1.2fr 0.8fr 0.6fr 0.6fr 0.6fr 0.6fr;gap:6px;margin-bottom:8px;align-items:center}
+        .chart-container{width:100%;overflow:hidden}
+        svg{display:block}
+        /* Sport zone responsive styles */
+        .zone-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;text-align:center}
+        .zone-card{background:#f7fafc;padding:6px;border-radius:6px}
+        @media (max-width: 480px){
+            .zone-grid{grid-template-columns:1fr}
+            .zone-card{display:flex;align-items:center;justify-content:space-between;padding:10px;font-size:15px}
+            input[type="number"], input[type="time"]{font-size:16px;padding:10px}
+            .modal-card{width:94%;padding:14px}
+            .preset-btn{padding:10px 12px;font-size:14px}
+            .nav-bar{font-size:14px}
+            .preset-editor-row{grid-template-columns:1fr}
+        }
+    </style>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+
+    <!-- VIEW 1: DASHBOARD + ANALÝZY -->
+    <div id="view-home" class="view active">
+        <div class="header">
+            <h2>📅 Dnes</h2>
+            <span id="date"></span>
+        </div>
+        <div class="card" id="profile-card" style="margin-top:8px;">
+            <h3>👤 Profil</h3>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+                <input type="number" id="bio-weight" placeholder="Hmotnosť (kg)" min="30">
+                <input type="number" id="bio-height" placeholder="Výška (cm)" min="100">
+                <input type="number" id="bio-age" placeholder="Vek" min="10">
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;">
+                <select id="bio-sex">
+                    <option value="male">Muž</option>
+                    <option value="female">Žena</option>
+                </select>
+                <input type="number" id="bio-resthr" placeholder="Kľudový tep" min="30">
+                <input type="number" id="bio-maxhr" placeholder="Maximálny tep (voliteľné)" min="80">
+            </div>
+            <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+                <button id="btn-save-bio">Uložiť profil</button>
+                <small id="bio-saved" style="color:var(--muted);display:none;">Profil uložený</small>
+            </div>
+        </div>
+        
+        <div class="circle-progress" id="kcalCircle">
+            <div class="circle-inner">
+                <span style="font-size: 11px; color: #718096;">Zostáva</span>
+                <strong id="kcalRemaining" style="font-size: 22px;">2000</strong>
+                <span>z <span id="kcalTarget">2000</span> kcal</span>
+            </div>
+        </div>
+        
+        <div class="card grid-3">
+            <div><b id="p-total">0</b><br><span style="color:#4299e1">🥩 B</span></div>
+            <div><b id="c-total">0</b><br><span style="color:#ecc94b">🍚 S</span></div>
+            <div><b id="f-total">0</b><br><span style="color:#ed8936">🥑 T</span></div>
+        </div>
+
+        <!-- Grafická analýza posledných 5 dní -->
+        <div class="card">
+            <h3>📊 Analýza kalórií (Posledných 5 dní)</h3>
+            <div class="chart-container">
+                <svg id="kcalChart" width="100%" height="140" viewBox="0 0 300 140" preserveAspectRatio="none">
+                    <!-- Osi a stĺpce sa vygenerujú čisto cez JS -->
+                </svg>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>🏃‍♂️ Dnešná aktivita</h3>
+            <div id="dash-sports-summary" style="margin-top: 6px; font-size: 14px; color: #4a5568;">Žiadny plánovaný tréning.</div>
+        </div>
+
+        <div class="card">
+            <h3>🥔 Carbload plán</h3>
+            <div id="carbload-plan-summary" style="margin-top: 6px; font-size: 14px; color: #4a5568;">Žiadny plán carbloadu.</div>
+            <div id="carbload-plan-times" style="margin-top: 8px; display:grid; gap:4px; font-size:13px; color:#2d3748;"></div>
+        </div>
+    </div>
+
+    <!-- VIEW 2: KALENDÁR STRAVY -->
+    <div id="view-food" class="view">
+        <h2>🍽️ Kalendár stravy</h2>
+        <div class="card">
+            <input type="date" id="food-date-picker">
+        </div>
+        
+        <div class="card">
+            <h3>➕ Pridať jedlo</h3>
+            <div style="font-size:12px;color:#718096;margin-bottom:8px;">Rýchle jedlá podľa kategórií — klikni a potom zadaj presné množstvo v gramoch.</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <div id="food-presets" class="preset-row" style="margin-top:0"></div>
+                <button type="button" id="btn-edit-food-presets" class="preset-btn" style="background:#2d3748;color:#fff;">Upraviť jedlá</button>
+            </div>
+            <form id="food-form" onsubmit="return false;">
+                <input type="text" id="f-name" placeholder="Názov jedla">
+                <div class="grid-2">
+                    <input type="number" id="f-kcal" placeholder="Kcal / 100g" min="0">
+                    <input type="number" id="f-weight" placeholder="Množstvo v g" min="0">
+                </div>
+                <div class="grid-3">
+                    <input type="number" id="f-p" placeholder="B (g)" min="0" step="0.1">
+                    <input type="number" id="f-c" placeholder="S (g)" min="0" step="0.1">
+                    <input type="number" id="f-f" placeholder="T (g)" min="0" step="0.1">
+                </div>
+                <button type="button" id="btn-add-food">Pridať do dňa</button>
+            </form>
+        </div>
+        
+        <div class="card">
+            <h3>📝 Zapísané potraviny</h3>
+            <div id="food-list"></div>
+        </div>
+    </div>
+
+    <!-- VIEW 3: TRÉNINGY A CARBLOAD -->
+    <div id="view-sports" class="view">
+        <h2>⚡ Tréningy & Carbload</h2>
+        
+        <div class="card">
+            <input type="date" id="sport-date-picker">
+        </div>
+        
+        <div class="card" style="border-left: 4px solid var(--sports);">
+            <h3>⏱️ Plán tréningu / Súťaže</h3>
+            
+            <label style="font-size:12px; color:#718096;">Typ aktivity (Predvoľba)</label>
+            <select id="s-template">
+                <option value="vlastne">-- Vlastný názov / Iné --</option>
+                <option value="volno">Volno 🛌</option>
+                <option value="plavanie">Plavanie 🏊‍♂️</option>
+                <option value="bicykel">Bicykel 🚴‍♂️</option>
+                <option value="beh">Beh 🏃‍♂️</option>
+                <option value="duathlon">Duathlon 🏃‍♂️🚴‍♂️🏃‍♂️</option>
+                <option value="aquathlon">Aquathlon 🏊‍♂️🏃‍♂️</option>
+                <option value="triathlon">Triathlon 🏊‍♂️🚴‍♂️🏃‍♂️</option>
+                <option value="brick">Brick (Bike + Beh) 🚴‍♂️🏃‍♂️</option>
+            </select>
+
+            <input type="text" id="s-title" placeholder="Názov tréningu alebo upresnenie">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+                <div>
+                    <label style="font-size:12px; color:#718096;">Čas odjazdu</label>
+                    <input type="time" id="s-start-time" value="08:00">
+                </div>
+                <div>
+                    <label style="font-size:12px; color:#718096;">% carbloadu na predchádzajúci deň</label>
+                    <input type="number" id="s-carb-share-prev-day" min="0" max="100" value="30">
+                </div>
+            </div>
+            
+            <div style="margin-top: 12px; margin-bottom: 6px;">
+                <label style="font-size: 13px; font-weight: bold; color: #4a5568;">Zadaj čas v zónach (v minútach):</label>
+            </div>
+            
+            <div class="zone-grid">
+                <div class="zone-card" style="background:#f7fafc;">
+                    <span style="font-size:11px; font-weight:bold; color:#a0aec0;">Z1</span>
+                    <input type="number" id="s-z1" placeholder="min" min="0">
+                </div>
+                <div class="zone-card" style="background:#f0fff4;">
+                    <span style="font-size:11px; font-weight:bold; color:#48bb78;">Z2</span>
+                    <input type="number" id="s-z2" placeholder="min" min="0">
+                </div>
+                <div class="zone-card" style="background:#fffff0;">
+                    <span style="font-size:11px; font-weight:bold; color:#ecc94b;">Z3</span>
+                    <input type="number" id="s-z3" placeholder="min" min="0">
+                </div>
+                <div class="zone-card" style="background:#fffaf0;">
+                    <span style="font-size:11px; font-weight:bold; color:#ed8936;">Z4</span>
+                    <input type="number" id="s-z4" placeholder="min" min="0">
+                </div>
+                <div class="zone-card" style="background:#fff5f5;">
+                    <span style="font-size:11px; font-weight:bold; color:#e53e3e;">Z5</span>
+                    <input type="number" id="s-z5" placeholder="min" min="0">
+                </div>
+            </div>
+            
+            <!-- Živý prepočet zón -->
+            <div id="carb-prediction-box" class="info-box" style="display: none; background: #ebf8ff; margin-top:10px;">
+                💡 <b>Celkový čas:</b> <span id="predicted-duration">0</span> minút<br>
+                🔋 <b>Predikovaný Carbload:</b> <span id="predicted-carbs" style="color:var(--sports); font-weight:bold;">0</span>g sacharidov navyše.<br>
+                🔥 <b>Odhad spálenia:</b> <span id="predicted-kcal" style="color:#c53030; font-weight:bold;">0</span> kcal
+            </div>
+
+            <button type="button" id="btn-add-sport" class="btn-sports" style="margin-top:12px;">Uložiť do kalendára</button>
+        </div>
+
+        <div class="card">
+            <h3>📋 Plánované aktivity</h3>
+            <div id="sport-list"></div>
+        </div>
+    </div>
+    <!-- BOTTOM NAVIGÁCIA OPTIMALIZOVANÁ PRE IPHONE SE / FACE ID -->
+    <div class="nav-bar">
+        <button type="button" class="tab-btn active" id="tab-home">
+            <span class="nav-icon">📊</span>
+            <span class="nav-text">Nástenka</span>
+        </button>
+        <button type="button" class="tab-btn" id="tab-food">
+            <span class="nav-icon">🍽️</span>
+            <span class="nav-text">Strava</span>
+        </button>
+        <button type="button" class="tab-btn" id="tab-sports">
+            <span class="nav-icon">⚡</span>
+            <span class="nav-text">Šport</span>
+        </button>
+    </div>
+
+    <div id="food-preset-modal" class="modal" aria-hidden="true">
+        <div class="modal-card">
+            <h3 style="margin-top:0;">Upraviť rýchle jedlá</h3>
+            <label style="font-size:12px;color:#718096;">Vyber skupinu pre úpravu</label>
+            <select id="preset-macro-filter" style="width:100%;margin:6px 0 8px;">
+                <option value="Všetky">Všetky</option>
+                <option value="Sacharidy">Sacharidy</option>
+                <option value="Bielkoviny">Bielkoviny</option>
+                <option value="Tuky">Tuky</option>
+            </select>
+            <div id="preset-editor-list"></div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+                <button type="button" id="btn-close-preset-editor" class="preset-btn" style="background:#718096;color:#fff;">Zatvoriť</button>
+                <button type="button" id="btn-save-preset-editor" style="background:var(--primary);">Uložiť</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="sport-edit-modal" class="modal" aria-hidden="true">
+        <div class="modal-card">
+            <h3 style="margin-top:0;">Upraviť tréning</h3>
+            <div style="display:grid;gap:8px;">
+                <input type="text" id="edit-s-title" placeholder="Názov tréningu">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+                    <div>
+                        <label style="font-size:12px;color:#718096;">Čas odjazdu</label>
+                        <input type="time" id="edit-s-start-time" value="08:00">
+                    </div>
+                    <div>
+                        <label style="font-size:12px;color:#718096;">% carb prev deň</label>
+                        <input type="number" id="edit-s-carb-share-prev-day" min="0" max="100" value="30">
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px; margin-top:6px;">
+                    <input type="number" id="edit-s-z1" placeholder="Z1 (min)" min="0">
+                    <input type="number" id="edit-s-z2" placeholder="Z2 (min)" min="0">
+                    <input type="number" id="edit-s-z3" placeholder="Z3 (min)" min="0">
+                    <input type="number" id="edit-s-z4" placeholder="Z4 (min)" min="0">
+                    <input type="number" id="edit-s-z5" placeholder="Z5 (min)" min="0">
+                </div>
+
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
+                    <button type="button" id="btn-close-edit-sport" class="preset-btn" style="background:#718096;color:#fff;">Zatvoriť</button>
+                    <button type="button" id="btn-save-edit-sport" style="background:var(--primary);">Uložiť</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIKA A INICIALIZÁCIA MODULOV -->
+    <script src="sport.js"></script>
+    <script src="food.js"></script>
+    <script src="calendar-sport.js"></script>
+    <script src="app.js"></script>
+
+    <script>
+        // Minimalne skripty pre index ako offline analytiku
+        document.addEventListener('DOMContentLoaded', () => {
+            // Taby
+            const tabs = [
+                { id: 'home', btn: document.getElementById('tab-home') },
+                { id: 'food', btn: document.getElementById('tab-food') },
+                { id: 'sports', btn: document.getElementById('tab-sports') }
+            ];
+            tabs.forEach(tab => tab.btn?.addEventListener('click', () => switchTab(tab.id, tab.btn)));
+
+            // Rýchla analytika: načítaj posledných 5 dní a vykresli jednoduchý SVG bar chart
+            try { renderKcalSparkline(5); renderTodaySummary(); } catch (e) { console.error(e); }
+
+            // Načítaj uložený bio profil do formulára
+            try { loadBio(); } catch (e) { console.warn(e); }
+        });
+
+        function loadBio() {
+            try {
+                const raw = localStorage.getItem('tri_user_bio_v1');
+                if (!raw) return;
+                const bio = JSON.parse(raw);
+                if (!bio) return;
+                const fields = ['weight','height','age','sex','resthr','maxhr'];
+                fields.forEach(f => {
+                    const el = document.getElementById('bio-' + f);
+                    if (el && bio[f] !== undefined) el.value = bio[f];
+                });
+            } catch (e) { console.warn('loadBio', e); }
+        }
+
+        function saveBio() {
+            try {
+                const weight = Number(document.getElementById('bio-weight')?.value) || 0;
+                const height = Number(document.getElementById('bio-height')?.value) || 0;
+                const age = Number(document.getElementById('bio-age')?.value) || 0;
+                const sex = document.getElementById('bio-sex')?.value || 'male';
+                const resthr = Number(document.getElementById('bio-resthr')?.value) || 0;
+                const maxhr = Number(document.getElementById('bio-maxhr')?.value) || 0;
+                const bio = { weight, height, age, sex, resthr, maxhr, savedAt: new Date().toISOString() };
+                localStorage.setItem('tri_user_bio_v1', JSON.stringify(bio));
+                const hint = document.getElementById('bio-saved'); if (hint) { hint.style.display = 'inline'; setTimeout(()=>hint.style.display='none',1500); }
+                try {
+                    renderKcalSparkline(5);
+                    renderTodaySummary();
+                    if (typeof initDashboard === 'function') initDashboard();
+                    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+                        window.dispatchEvent(new Event('storage'));
+                    }
+                } catch(e){}
+            } catch (e) { console.error('saveBio', e); }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const saveBtn = document.getElementById('btn-save-bio');
+            saveBtn?.addEventListener('click', saveBio);
+        });
+
+        function getDatesBack(n) {
+            const out = [];
+            for (let i = n - 1; i >= 0; i--) {
+                const d = new Date(); d.setDate(d.getDate() - i);
+                out.push(d.toISOString().slice(0,10));
+            }
+            return out;
+        }
+
+        function renderKcalSparkline(daysCount) {
+            const dates = getDatesBack(daysCount);
+            const foodStore = Storage.get(STORAGE_KEYS.FOOD);
+            const sportsStore = Storage.get(STORAGE_KEYS.SPORTS);
+
+            const values = dates.map(date => {
+                const foodK = (foodStore[date] || []).reduce((s,i)=>s+(Number(i.kcal)||0),0);
+                const carb = (sportsStore[date] || []).reduce((s,i)=>s+(Number(i.carbload)||0),0);
+                const dynTarget = (typeof getDailyKcalTarget === 'function' ? getDailyKcalTarget() : 2000) + (carb * 4);
+                return { date, kcal: foodK, target: dynTarget };
+            });
+
+            const svg = document.getElementById('kcalChart');
+            if (!svg) return;
+            const w = 300, h = 140, pad = 8; svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+            const max = Math.max(...values.map(v=>Math.max(v.kcal, v.target,1)));
+            svg.innerHTML = '';
+
+            const barW = (w - pad*2) / values.length;
+            values.forEach((v,i) => {
+                const x = pad + i*barW;
+                const kh = Math.round((v.kcal / max) * (h - 30));
+                const th = Math.round((v.target / max) * (h - 30));
+
+                // target line (thin)
+                const tY = h - pad - th;
+                const line = document.createElementNS('http://www.w3.org/2000/svg','rect');
+                line.setAttribute('x', x+barW*0.25); line.setAttribute('y', tY); line.setAttribute('width', barW*0.5);
+                line.setAttribute('height', 2); line.setAttribute('fill', '#cbd5e1'); svg.appendChild(line);
+
+                // bar
+                const y = h - pad - kh;
+                const bar = document.createElementNS('http://www.w3.org/2000/svg','rect');
+                bar.setAttribute('x', x+barW*0.15); bar.setAttribute('y', y); bar.setAttribute('width', barW*0.7);
+                bar.setAttribute('height', Math.max(2, kh)); bar.setAttribute('fill', 'var(--primary)'); svg.appendChild(bar);
+            });
+        }
+
+        function renderTodaySummary() {
+            const today = new Date().toISOString().slice(0,10);
+            const foodStore = Storage.get(STORAGE_KEYS.FOOD)[today] || [];
+            const sportStore = Storage.get(STORAGE_KEYS.SPORTS)[today] || [];
+
+            const kcal = foodStore.reduce((s,i)=>s+(Number(i.kcal)||0),0);
+            const carbs = sportStore.reduce((s,i)=>s+(Number(i.carbload)||0),0);
+
+            const dash = document.getElementById('dash-sports-summary');
+            if (dash) {
+                dash.textContent = `${sportStore.length} aktivity, Carbload +${carbs}g · Prijaté ${kcal} kcal`;
+            }
+        }
+
+        // ServiceWorker registracia (zachovat offline cache z sw.js)
+        if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(e => console.warn('SW reg fail', e));
+            });
+        } else if (window.location.protocol === 'file:') {
+            console.warn('ServiceWorker disabled in file:// mode; run through HTTP(S) to enable offline PWA support.');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,360 @@
+// ==========================================
+// GLOBÁLNE NASTAVENIA A REAKTÍVNY STAV
+// ==========================================
+
+function getBioProfile() {
+    try {
+        const raw = localStorage.getItem('tri_user_bio_v1');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (e) {
+        console.warn('Nepodarilo sa načítať bio profil:', e);
+        return null;
+    }
+}
+
+function getDailyKcalTarget() {
+    const bio = getBioProfile();
+    if (!bio) return 2000;
+
+    const weight = Number(bio.weight) || 70;
+    const height = Number(bio.height) || 175;
+    const age = Number(bio.age) || 30;
+    const sex = bio.sex === 'female' ? 'female' : 'male';
+    const restHr = Number(bio.resthr) || 60;
+    const maxHr = Number(bio.maxhr) || 0;
+
+    const bmr = sex === 'female'
+        ? (10 * weight) + (6.25 * height) - (5 * age) - 161
+        : (10 * weight) + (6.25 * height) - (5 * age) + 5;
+
+    let activityFactor = 1.2;
+    if (maxHr > 0 && restHr > 0) {
+        const hrReserve = maxHr - restHr;
+        activityFactor += Math.min(0.25, hrReserve / 400);
+    }
+    if (restHr < 55) activityFactor += 0.05;
+    if (restHr > 75) activityFactor += 0.05;
+
+    return Math.round(bmr * activityFactor);
+}
+
+function getDayDifference(fromDate, targetDate) {
+    const from = new Date(`${fromDate}T00:00:00`);
+    const target = new Date(`${targetDate}T00:00:00`);
+    return Math.round((target - from) / (1000 * 60 * 60 * 24));
+}
+
+function getCarbloadBonusForDate(date) {
+    const sportsStore = Storage.get(STORAGE_KEYS.SPORTS);
+    let totalBonus = 0;
+
+    Object.entries(sportsStore).forEach(([sportDate, items]) => {
+        if (!Array.isArray(items)) return;
+
+        items.forEach((sport) => {
+            const carbload = Number(sport.carbload) || 0;
+            if (!carbload) return;
+
+            const sharePrevDay = Number(sport.carbSharePrevDay) || 30;
+            const prevDayCarbs = Math.round(carbload * sharePrevDay / 100);
+            const eventDayCarbs = Math.max(0, carbload - prevDayCarbs);
+            const diff = getDayDifference(date, sportDate);
+
+            if (diff === 1) {
+                totalBonus += prevDayCarbs;
+            } else if (diff === 0) {
+                totalBonus += eventDayCarbs;
+            }
+        });
+    });
+
+    return totalBonus;
+}
+
+function buildCarbloadPlanForDate(date) {
+    const sportsStore = Storage.get(STORAGE_KEYS.SPORTS);
+    let bestPlan = null;
+    let bestDiff = Infinity;
+
+    Object.entries(sportsStore).forEach(([sportDate, items]) => {
+        if (!Array.isArray(items)) return;
+
+        items.forEach((sport) => {
+            const carbload = Number(sport.carbload) || 0;
+            if (!carbload) return;
+
+            const sharePrevDay = Number(sport.carbSharePrevDay) || 30;
+            const prevDayCarbs = Math.round(carbload * sharePrevDay / 100);
+            const eventDayCarbs = Math.max(0, carbload - prevDayCarbs);
+            const diff = getDayDifference(date, sportDate);
+
+            if (diff === 1 || diff === 0) {
+                const candidate = {
+                    title: sport.title || 'Tréning',
+                    startTime: sport.startTime || '08:00',
+                    carbload,
+                    prevDayCarbs,
+                    eventDayCarbs,
+                    kind: diff === 1 ? 'prev' : 'event',
+                    label: diff === 1 ? 'Dnes (30% carbloadu)' : 'Na dnes (zvyšok carbloadu)'
+                };
+
+                if (Math.abs(diff) < bestDiff) {
+                    bestPlan = candidate;
+                    bestDiff = Math.abs(diff);
+                }
+            }
+        });
+    });
+
+    return bestPlan;
+}
+
+function formatMinutesToTime(minutes) {
+    const safe = Math.max(0, Math.min(24 * 60, minutes));
+    const hh = String(Math.floor(safe / 60)).padStart(2, '0');
+    const mm = String(safe % 60).padStart(2, '0');
+    return `${hh}:${mm}`;
+}
+
+function parseTimeToMinutes(value) {
+    if (!value) return 8 * 60;
+    const [hh = '08', mm = '00'] = String(value).split(':');
+    return Number(hh) * 60 + Number(mm);
+}
+
+function buildMealTimesForPlan(plan) {
+    if (!plan) return [];
+
+    if (plan.kind === 'prev') {
+        const total = plan.prevDayCarbs;
+        return [
+            { time: '10:00', grams: Math.round(total * 0.35) },
+            { time: '15:00', grams: Math.round(total * 0.35) },
+            { time: '20:00', grams: Math.max(1, total - Math.round(total * 0.7)) }
+        ];
+    }
+
+    const total = plan.eventDayCarbs;
+    const startMinutes = parseTimeToMinutes(plan.startTime);
+    return [
+        { time: formatMinutesToTime(startMinutes - 180), grams: Math.max(1, Math.round(total * 0.2)) },
+        { time: formatMinutesToTime(startMinutes - 120), grams: Math.max(1, Math.round(total * 0.35)) },
+        { time: formatMinutesToTime(startMinutes - 60), grams: Math.max(1, Math.round(total * 0.25)) },
+        { time: formatMinutesToTime(startMinutes - 30), grams: Math.max(1, total - Math.round(total * 0.8)) }
+    ].filter(slot => slot.grams > 0);
+}
+
+function renderCarbloadPlanCard(date) {
+    const summaryEl = DOM.get('carbload-plan-summary');
+    const timeEl = DOM.get('carbload-plan-times');
+    const plan = buildCarbloadPlanForDate(date);
+
+    if (!plan) {
+        if (summaryEl) summaryEl.textContent = 'Žiadny plán carbloadu pre tréningom.';
+        if (timeEl) timeEl.innerHTML = '';
+        return;
+    }
+
+    const mealTimes = buildMealTimesForPlan(plan);
+    const carbs = plan.kind === 'prev' ? plan.prevDayCarbs : plan.eventDayCarbs;
+    const kcal = carbs * KCAL_PER_GRAM_CARB;
+
+    if (summaryEl) {
+        summaryEl.innerHTML = `${plan.label}: <strong>${carbs}g sacharidov</strong> (${kcal} kcal)`;
+    }
+
+    if (timeEl) {
+        timeEl.innerHTML = mealTimes.map(slot => `<div><strong>${slot.time}</strong> — ${slot.grams}g sacharidov</div>`).join('');
+    }
+}
+
+const BASE_TARGETS = Object.freeze({ kcal: 2000, p: 150, c: 200, f: 65 });
+const KCAL_PER_GRAM_CARB = 4;
+const STORAGE_KEYS = Object.freeze({
+    FOOD: 'pwa_food_calendar',
+    SPORTS: 'pwa_sports_calendar'
+});
+
+// Pomocná funkcia pre lokálny ISO dátum (odolný voči časovým pásmam)
+const getTodayString = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+// JEDINÝ ZDROJ PRAVDY (State Management)
+const AppState = {
+    _selectedDate: getTodayString(),
+    _listeners: [],
+
+    get selectedDate() {
+        return this._selectedDate;
+    },
+
+    set selectedDate(newDate) {
+        if (this._selectedDate === newDate) return;
+        this._selectedDate = newDate;
+        this.notify();
+    },
+
+    subscribe(callback) {
+        this._listeners.push(callback);
+    },
+
+    notify() {
+        this._listeners.forEach(callback => callback(this._selectedDate));
+    }
+};
+
+// Bezpečné a rýchle IO operácie
+const Storage = {
+    get(key) {
+        try {
+            return JSON.parse(localStorage.getItem(key)) || {};
+        } catch (e) {
+            console.error(`Chyba čítania úložiska pre kľúč "${key}":`, e);
+            return {};
+        }
+    },
+    save(key, data) {
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+        } catch (e) {
+            console.error(`Chyba zápisu úložiska pre kľúč "${key}":`, e);
+        }
+    }
+};
+
+// Cache DOM elementov, aby sme ich nehľadali pri každom prekreslení
+const DOM = {
+    cache: {},
+    get(id) {
+        if (!this.cache[id]) this.cache[id] = document.getElementById(id);
+        return this.cache[id];
+    },
+    getSelector(selector) {
+        if (!this.cache[selector]) this.cache[selector] = document.querySelector(selector);
+        return this.cache[selector];
+    }
+};
+
+// ==========================================
+// PREPÍNANIE SKLADIÍST (Tabs)
+// ==========================================
+function switchTab(viewId, btn) {
+    if (!btn) return;
+    
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    
+    const targetView = DOM.get(`view-${viewId}`);
+    if (targetView) targetView.classList.add('active');
+    
+    btn.classList.add('active');
+    if (viewId === 'sports') btn.classList.add('sports-tab');
+
+    if (viewId === 'home') initDashboard();
+    if (viewId === 'food' && typeof renderFoodPresets === 'function') renderFoodPresets();
+}
+
+// ==========================================
+// CENTRALIZOVANÁ INICIALIZÁCIA DASHBOARDU
+// ==========================================
+function initDashboard() {
+    const date = AppState.selectedDate;
+
+    // 1. Agregácia stravy cez n-rozmerný reduce s elimináciou nulových chýb
+    const foodTotals = (Storage.get(STORAGE_KEYS.FOOD)[date] || []).reduce((acc, item) => {
+        acc.kcal += Number(item.kcal) || 0;
+        acc.p += Number(item.p) || 0;
+        acc.c += Number(item.c) || 0;
+        acc.f += Number(item.f) || 0;
+        return acc;
+    }, { kcal: 0, p: 0, c: 0, f: 0 });
+
+    // 2. Výpočet Carbload bonusu pre vybraný deň
+    const carbloadBonusGrams = getCarbloadBonusForDate(date);
+
+    // 3. Výpočet dynamických cieľov
+    const bioKcalTarget = getDailyKcalTarget();
+    const dynamicCarbTarget = BASE_TARGETS.c + carbloadBonusGrams;
+    const dynamicKcalTarget = bioKcalTarget + (carbloadBonusGrams * KCAL_PER_GRAM_CARB);
+    const remainingKcal = dynamicKcalTarget - Math.round(foodTotals.kcal);
+
+    // 4. Ultra-bezpečný render do UI (XSS imunita)
+    const elRemaining = DOM.get('kcalRemaining');
+    if (elRemaining) elRemaining.textContent = remainingKcal.toLocaleString('sk-SK');
+    
+    const elTargetKcal = DOM.getSelector('.circle-inner span:last-child');
+    if (elTargetKcal) {
+        elTargetKcal.innerHTML = `z <span id="kcalTarget">${dynamicKcalTarget}</span> kcal`;
+    }
+
+    const setMacroText = (id, current, target) => {
+        const el = DOM.get(id);
+        if (el) el.textContent = `${current.toFixed(0)}/${target}`;
+    };
+
+    setMacroText('p-total', foodTotals.p, BASE_TARGETS.p);
+    setMacroText('c-total', foodTotals.c, dynamicCarbTarget);
+    setMacroText('f-total', foodTotals.f, BASE_TARGETS.f);
+
+    // 5. Grafický progress bar (Kruh)
+    const kcalCircle = DOM.get('kcalCircle');
+    if (kcalCircle) {
+        const pct = dynamicKcalTarget > 0 ? (foodTotals.kcal / dynamicKcalTarget) : 0;
+        const degrees = Math.min(pct * 360, 360);
+        kcalCircle.style.background = `conic-gradient(var(--primary) ${degrees}deg, #e2e8f0 ${degrees}deg)`;
+    }
+    
+    renderCarbloadPlanCard(date);
+
+    if (typeof updateSportsDashboardSummary === "function") {
+        updateSportsDashboardSummary();
+    }
+}
+
+// ==========================================
+// REAKTÍVNE PREPOJENIE (Event Binding)
+// ==========================================
+function setupStateWatchers() {
+    const foodPicker = DOM.get('food-date-picker');
+    const sportPicker = DOM.get('sport-date-picker');
+
+    // Sledovanie zmien v Inputoch -> Aktualizácia stavu
+    const handleDateChange = (e) => {
+        AppState.selectedDate = e.target.value;
+    };
+
+    foodPicker?.addEventListener('change', handleDateChange);
+    sportPicker?.addEventListener('change', handleDateChange);
+
+    // Sledovanie zmeny stavu -> Automatický update UI komponentov
+    AppState.subscribe((newDate) => {
+        if (foodPicker && foodPicker.value !== newDate) foodPicker.value = newDate;
+        if (sportPicker && sportPicker.value !== newDate) sportPicker.value = newDate;
+        
+        initDashboard();
+        if (typeof loadSportDay === "function") loadSportDay();
+    });
+}
+
+// Inicializácia pri štarte aplikácie
+window.addEventListener('DOMContentLoaded', () => {
+    const today = AppState.selectedDate;
+    
+    const foodPicker = DOM.get('food-date-picker');
+    const sportPicker = DOM.get('sport-date-picker');
+    if (foodPicker) foodPicker.value = today;
+    if (sportPicker) sportPicker.value = today;
+    
+    const dateEl = DOM.get('date');
+    if (dateEl) {
+        dateEl.textContent = new Date().toLocaleDateString('sk-SK', { day: 'numeric', month: 'numeric' });
+    }
+
+    setupStateWatchers();
+    initDashboard();
+});
