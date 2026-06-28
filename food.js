@@ -1,4 +1,5 @@
 const FOOD_PRESET_STORAGE_KEY = 'tri_food_presets_v1';
+const MEAL_ORDER = ['Raňajky', 'Desiata', 'Obed', 'Olovrant', 'Večera', 'Druhá večera', 'Nezaradené'];
 
 const DEFAULT_FOOD_PRESETS = [
     { name: 'Ovsené vločky', category: 'Karbóny', kcal: 389, p: 16.9, c: 66.3, sugar: 0.9, f: 6.9 },
@@ -47,6 +48,38 @@ function getFoodPresets() {
 
 function saveFoodPresets(presets) {
     localStorage.setItem(FOOD_PRESET_STORAGE_KEY, JSON.stringify(presets));
+}
+
+function saveCurrentFoodAsPreset() {
+    const name = DOM.get('f-name')?.value?.trim();
+    if (!name) {
+        alert('Najprv zadaj názov jedla.');
+        return;
+    }
+
+    const carbs = Math.max(0, Number(DOM.get('f-c')?.value) || 0);
+    const preset = normalizeFoodPreset({
+        name,
+        category: 'Ostatné',
+        kcal: Math.max(0, Number(DOM.get('f-kcal')?.value) || 0),
+        p: Math.max(0, Number(DOM.get('f-p')?.value) || 0),
+        c: carbs,
+        sugar: Math.min(carbs, Math.max(0, Number(DOM.get('f-sugar')?.value) || 0)),
+        f: Math.max(0, Number(DOM.get('f-f')?.value) || 0)
+    });
+
+    const presets = getFoodPresets();
+    const existingIndex = presets.findIndex(item => item.name.toLowerCase() === preset.name.toLowerCase());
+    if (existingIndex >= 0) {
+        presets[existingIndex] = { ...presets[existingIndex], ...preset };
+    } else {
+        presets.push(preset);
+    }
+
+    saveFoodPresets(presets);
+    renderFoodPresets();
+    renderPresetEditor(document.getElementById('preset-macro-filter')?.value || 'Všetky');
+    alert(existingIndex >= 0 ? 'Jedlo v databáze aktualizované.' : 'Jedlo pridané do databázy.');
 }
 
 function renderFoodPresets() {
@@ -121,7 +154,6 @@ function renderPresetEditor(filter = 'Všetky') {
         const row = document.createElement('div');
         row.className = 'preset-editor-row';
         row.dataset.presetIndex = originalIndex >= 0 ? originalIndex : visibleIndex;
-        row.style.cssText = 'display:grid;grid-template-columns:1.2fr 0.8fr repeat(5,0.55fr);gap:6px;margin-bottom:8px;align-items:center;';
 
         const nameInput = document.createElement('input');
         nameInput.value = preset.name;
@@ -211,7 +243,27 @@ function loadFoodDay() {
 
     const fragment = document.createDocumentFragment();
 
-    dayLogs.forEach((item) => {
+    const groupedLogs = dayLogs.reduce((acc, item) => {
+        const meal = item.meal || 'Nezaradené';
+        if (!acc[meal]) acc[meal] = [];
+        acc[meal].push(item);
+        return acc;
+    }, {});
+
+    MEAL_ORDER.forEach((meal) => {
+        const mealItems = groupedLogs[meal] || [];
+        if (!mealItems.length) return;
+
+        const mealSection = document.createElement('div');
+        mealSection.style.cssText = 'margin-top:10px;';
+
+        const mealTitle = document.createElement('div');
+        const mealKcal = mealItems.reduce((sum, item) => sum + (Number(item.kcal) || 0), 0);
+        mealTitle.textContent = `${meal} · ${mealKcal} kcal`;
+        mealTitle.style.cssText = 'font-size:12px;font-weight:800;color:#2d3748;text-transform:uppercase;letter-spacing:.03em;margin:8px 0 4px;';
+        mealSection.appendChild(mealTitle);
+
+        mealItems.forEach((item) => {
         const itemWrapper = document.createElement('div');
         itemWrapper.className = 'list-item';
         itemWrapper.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px; margin-top: 4px;';
@@ -256,7 +308,10 @@ function loadFoodDay() {
         rightDiv.append(kcalSpan, brRight, deleteBtn);
 
         itemWrapper.append(leftDiv, rightDiv);
-        fragment.append(itemWrapper);
+        mealSection.append(itemWrapper);
+        });
+
+        fragment.append(mealSection);
     });
 
     list.append(fragment);
@@ -267,6 +322,7 @@ function addFoodItem() {
     const date = AppState.selectedDate;
     
     const nameInput = DOM.get('f-name');
+    const mealInput = DOM.get('f-meal');
     const weightInput = DOM.get('f-weight');
     const kcalInput = DOM.get('f-kcal');
     const pInput = DOM.get('f-p');
@@ -287,6 +343,7 @@ function addFoodItem() {
     const newItem = {
         id: crypto.randomUUID?.() || Date.now().toString(),
         name,
+        meal: mealInput?.value || 'Raňajky',
         weight,
         kcal: Math.round(getNutrient(kcalInput) * multiplier),
         p: Math.round(getNutrient(pInput) * multiplier * 10) / 10,

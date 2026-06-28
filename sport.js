@@ -344,7 +344,11 @@ function initDashboard() {
     if (kcalCircle) {
         const pct = dynamicKcalTarget > 0 ? (foodTotals.kcal / dynamicKcalTarget) : 0;
         const degrees = Math.min(pct * 360, 360);
-        kcalCircle.style.background = `conic-gradient(var(--primary) ${degrees}deg, #e2e8f0 ${degrees}deg)`;
+        let progressColor = '#48bb78';
+        if (pct >= 1.5) progressColor = '#e53e3e';
+        else if (pct > 1.15) progressColor = '#ed8936';
+        else if (pct > 1) progressColor = '#ecc94b';
+        kcalCircle.style.background = `conic-gradient(${progressColor} ${degrees}deg, #e2e8f0 ${degrees}deg)`;
     }
     
     renderCarbloadPlanCard(date);

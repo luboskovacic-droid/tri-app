@@ -28,27 +28,28 @@
         .modal.open{display:flex}
         .modal-card{background:#fff;border-radius:10px;padding:12px;width:min(760px,96vw);max-height:90vh;overflow:auto}
         .modal-card input, .modal-card select {width:100%;box-sizing:border-box}
-        .preset-editor-row{display:grid;grid-template-columns:1.2fr 0.8fr repeat(5,0.55fr);gap:6px;margin-bottom:8px;align-items:center}
+        .preset-editor-wrap{width:100%;overflow-x:auto;padding-bottom:6px}
+        .preset-editor-row{display:grid;grid-template-columns:150px 120px repeat(5,86px);gap:6px;margin-bottom:8px;align-items:center;min-width:710px}
         .metric-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+        .meal-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
         .chart-container{width:100%;overflow:hidden}
         svg{display:block}
         /* Sport zone responsive styles */
-        .zone-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;text-align:center}
-        .zone-card{background:#f7fafc;padding:6px;border-radius:6px}
+        .zone-grid{display:grid;grid-template-columns:repeat(5,minmax(76px,1fr));gap:6px;text-align:center;overflow-x:auto;padding-bottom:4px}
+        .zone-card{background:#f7fafc;padding:6px;border-radius:6px;min-width:76px}
         @media (max-width: 480px){
-            .zone-grid{grid-template-columns:1fr}
-            .zone-card{display:flex;align-items:center;justify-content:space-between;padding:10px;font-size:15px}
+            .zone-grid{grid-template-columns:repeat(5,86px)}
+            .zone-card{display:flex;flex-direction:column;align-items:stretch;justify-content:center;padding:8px;font-size:15px}
             input[type="number"], input[type="time"]{font-size:16px;padding:10px}
             .modal-card{width:96vw;padding:14px}
             .preset-btn{padding:10px 12px;font-size:14px}
             .nav-bar{font-size:14px}
-            .preset-editor-row{grid-template-columns:1fr}
+            .meal-grid{grid-template-columns:1fr}
             .metric-grid-4{grid-template-columns:repeat(2,1fr)}
         }
         @media (orientation: landscape) and (max-height: 520px){
             .modal{align-items:flex-start;padding:8px}
             .modal-card{width:96vw;max-height:calc(100vh - 16px)}
-            .preset-editor-row{grid-template-columns:1.2fr 0.9fr repeat(5,0.55fr)}
         }
     </style>
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -103,7 +104,7 @@
         <div class="card">
             <h3>📊 Analýza kalórií (Posledných 5 dní)</h3>
             <div class="chart-container">
-                <svg id="kcalChart" width="100%" height="140" viewBox="0 0 300 140" preserveAspectRatio="none">
+                <svg id="kcalChart" width="100%" height="170" viewBox="0 0 300 170" preserveAspectRatio="none">
                     <!-- Osi a stĺpce sa vygenerujú čisto cez JS -->
                 </svg>
             </div>
@@ -129,7 +130,7 @@
         </div>
         
         <div class="card">
-            <h3>➕ Pridať jedlo</h3>
+            <h3>➕ Zapísať jedlo do dňa</h3>
             <div style="font-size:12px;color:#718096;margin-bottom:8px;">Rýchle jedlá podľa kategórií — klikni a potom zadaj presné množstvo v gramoch.</div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                 <div id="food-presets" class="preset-row" style="margin-top:0"></div>
@@ -137,6 +138,14 @@
             </div>
             <form id="food-form" onsubmit="return false;">
                 <input type="text" id="f-name" placeholder="Názov jedla">
+                <select id="f-meal">
+                    <option value="Raňajky">Raňajky</option>
+                    <option value="Desiata">Desiata</option>
+                    <option value="Obed">Obed</option>
+                    <option value="Olovrant">Olovrant</option>
+                    <option value="Večera">Večera</option>
+                    <option value="Druhá večera">Druhá večera</option>
+                </select>
                 <div class="grid-2">
                     <input type="number" id="f-kcal" placeholder="Kcal / 100g" min="0">
                     <input type="number" id="f-weight" placeholder="Množstvo v g" min="0">
@@ -147,12 +156,15 @@
                     <input type="number" id="f-sugar" placeholder="Cukry (g)" min="0" step="0.1">
                     <input type="number" id="f-f" placeholder="T (g)" min="0" step="0.1">
                 </div>
-                <button type="button" id="btn-add-food">Pridať do dňa</button>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <button type="button" id="btn-add-food">Pridať do dňa</button>
+                    <button type="button" id="btn-save-food-preset" class="preset-btn" style="background:#2d3748;color:#fff;">Pridať do databázy</button>
+                </div>
             </form>
         </div>
         
         <div class="card">
-            <h3>📝 Zapísané potraviny</h3>
+            <h3>📝 Zapísané potraviny podľa jedla</h3>
             <div id="food-list"></div>
         </div>
     </div>
@@ -292,7 +304,9 @@
                 <option value="Bielkoviny">Bielkoviny</option>
                 <option value="Tuky">Tuky</option>
             </select>
-            <div id="preset-editor-list"></div>
+            <div class="preset-editor-wrap">
+                <div id="preset-editor-list"></div>
+            </div>
             <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
                 <button type="button" id="btn-close-preset-editor" class="preset-btn" style="background:#718096;color:#fff;">Zatvoriť</button>
                 <button type="button" id="btn-save-preset-editor" style="background:var(--primary);">Uložiť</button>
@@ -417,38 +431,59 @@
         function renderKcalSparkline(daysCount) {
             const dates = getDatesBack(daysCount);
             const foodStore = Storage.get(STORAGE_KEYS.FOOD);
-            const sportsStore = Storage.get(STORAGE_KEYS.SPORTS);
 
             const values = dates.map(date => {
                 const foodK = (foodStore[date] || []).reduce((s,i)=>s+(Number(i.kcal)||0),0);
-                const carb = (sportsStore[date] || []).reduce((s,i)=>s+(Number(i.carbload)||0),0);
+                const carb = typeof getCarbloadBonusForDate === 'function' ? getCarbloadBonusForDate(date) : 0;
                 const dynTarget = (typeof getDailyKcalTarget === 'function' ? getDailyKcalTarget() : 2000) + (carb * 4);
                 return { date, kcal: foodK, target: dynTarget };
             });
 
             const svg = document.getElementById('kcalChart');
             if (!svg) return;
-            const w = 300, h = 140, pad = 8; svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+            const w = 300, h = 170, pad = 8; svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
             const max = Math.max(...values.map(v=>Math.max(v.kcal, v.target,1)));
             svg.innerHTML = '';
 
             const barW = (w - pad*2) / values.length;
             values.forEach((v,i) => {
                 const x = pad + i*barW;
-                const kh = Math.round((v.kcal / max) * (h - 30));
-                const th = Math.round((v.target / max) * (h - 30));
+                const chartH = h - 54;
+                const kh = Math.round((v.kcal / max) * chartH);
+                const th = Math.round((v.target / max) * chartH);
+                const ratio = v.target > 0 ? v.kcal / v.target : 0;
+                const barColor = ratio <= 1 ? '#48bb78' : ratio <= 1.15 ? '#ecc94b' : ratio < 1.5 ? '#ed8936' : '#e53e3e';
 
                 // target line (thin)
-                const tY = h - pad - th;
+                const tY = h - 24 - th;
                 const line = document.createElementNS('http://www.w3.org/2000/svg','rect');
                 line.setAttribute('x', x+barW*0.25); line.setAttribute('y', tY); line.setAttribute('width', barW*0.5);
                 line.setAttribute('height', 2); line.setAttribute('fill', '#cbd5e1'); svg.appendChild(line);
 
                 // bar
-                const y = h - pad - kh;
+                const y = h - 24 - kh;
                 const bar = document.createElementNS('http://www.w3.org/2000/svg','rect');
                 bar.setAttribute('x', x+barW*0.15); bar.setAttribute('y', y); bar.setAttribute('width', barW*0.7);
-                bar.setAttribute('height', Math.max(2, kh)); bar.setAttribute('fill', 'var(--primary)'); svg.appendChild(bar);
+                bar.setAttribute('height', Math.max(2, kh)); bar.setAttribute('fill', barColor); svg.appendChild(bar);
+
+                const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+                label.setAttribute('x', x + barW * 0.5);
+                label.setAttribute('y', Math.max(11, y - 4));
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('font-size', '8');
+                label.setAttribute('font-weight', '700');
+                label.setAttribute('fill', '#2d3748');
+                label.textContent = `${Math.round(v.kcal)}/${Math.round(v.target)}`;
+                svg.appendChild(label);
+
+                const dayLabel = document.createElementNS('http://www.w3.org/2000/svg','text');
+                dayLabel.setAttribute('x', x + barW * 0.5);
+                dayLabel.setAttribute('y', h - 8);
+                dayLabel.setAttribute('text-anchor', 'middle');
+                dayLabel.setAttribute('font-size', '8');
+                dayLabel.setAttribute('fill', '#718096');
+                dayLabel.textContent = v.date.slice(5).replace('-', '.');
+                svg.appendChild(dayLabel);
             });
         }
 
