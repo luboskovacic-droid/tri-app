@@ -50,15 +50,33 @@ function saveFoodPresets(presets) {
     localStorage.setItem(FOOD_PRESET_STORAGE_KEY, JSON.stringify(presets));
 }
 
-function saveCurrentFoodAsPreset() {
-    const name = DOM.get('f-name')?.value?.trim();
-    if (!name) {
-        alert('Najprv zadaj názov jedla.');
-        return;
+function upsertFoodPreset(preset) {
+    const presets = getFoodPresets();
+    const normalizedPreset = normalizeFoodPreset(preset);
+    const existingIndex = presets.findIndex(item => item.name.toLowerCase() === normalizedPreset.name.toLowerCase());
+    if (existingIndex >= 0) {
+        const category = normalizedPreset.category === 'Ostatné' ? presets[existingIndex].category : normalizedPreset.category;
+        presets[existingIndex] = { ...presets[existingIndex], ...normalizedPreset, category };
+    } else {
+        presets.push(normalizedPreset);
     }
 
+    saveFoodPresets(presets);
+    renderFoodPresets();
+    renderFoodSuggestions();
+    renderPresetEditor(
+        document.getElementById('preset-macro-filter')?.value || 'Všetky',
+        document.getElementById('preset-editor-search')?.value || ''
+    );
+    return existingIndex >= 0 ? 'updated' : 'created';
+}
+
+function buildPresetFromForm() {
+    const name = DOM.get('f-name')?.value?.trim();
+    if (!name) return null;
+
     const carbs = Math.max(0, Number(DOM.get('f-c')?.value) || 0);
-    const preset = normalizeFoodPreset({
+    return normalizeFoodPreset({
         name,
         category: 'Ostatné',
         kcal: Math.max(0, Number(DOM.get('f-kcal')?.value) || 0),
@@ -67,19 +85,44 @@ function saveCurrentFoodAsPreset() {
         sugar: Math.min(carbs, Math.max(0, Number(DOM.get('f-sugar')?.value) || 0)),
         f: Math.max(0, Number(DOM.get('f-f')?.value) || 0)
     });
+}
 
+function renderFoodSuggestions() {
+    const searchInput = DOM.get('f-search');
+    const suggestions = DOM.get('food-suggestions');
+    if (!searchInput || !suggestions) return;
+
+    const query = searchInput.value.trim().toLowerCase();
     const presets = getFoodPresets();
-    const existingIndex = presets.findIndex(item => item.name.toLowerCase() === preset.name.toLowerCase());
-    if (existingIndex >= 0) {
-        presets[existingIndex] = { ...presets[existingIndex], ...preset };
-    } else {
-        presets.push(preset);
+    const matches = (query
+        ? presets.filter((preset) => `${preset.name} ${preset.category}`.toLowerCase().includes(query))
+        : presets
+    ).slice(0, 8);
+
+    suggestions.innerHTML = '';
+    if (!matches.length) {
+        suggestions.classList.remove('open');
+        return;
     }
 
-    saveFoodPresets(presets);
-    renderFoodPresets();
-    renderPresetEditor(document.getElementById('preset-macro-filter')?.value || 'Všetky');
-    alert(existingIndex >= 0 ? 'Jedlo v databáze aktualizované.' : 'Jedlo pridané do databázy.');
+    matches.forEach((preset) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'food-suggestion';
+        btn.innerHTML = `<strong>${escapeFoodHtml(preset.name)}</strong><span>${escapeFoodHtml(preset.category || 'Ostatné')} · ${preset.kcal} kcal · B ${preset.p} / S ${preset.c} / Cukry ${preset.sugar || 0} / T ${preset.f}</span>`;
+        btn.addEventListener('click', () => {
+            applyFoodPreset(preset);
+            searchInput.value = preset.name;
+            suggestions.classList.remove('open');
+        });
+        suggestions.appendChild(btn);
+    });
+
+    suggestions.classList.add('open');
+}
+
+function escapeFoodHtml(value) {
+    return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function renderFoodPresets() {
@@ -134,22 +177,26 @@ function getPresetMacroGroup(preset) {
     return 'Tuky';
 }
 
-function renderPresetEditor(filter = 'Všetky') {
+function renderPresetEditor(filter = 'Všetky', search = '') {
     const list = document.getElementById('preset-editor-list');
     if (!list) return;
     const presets = getFoodPresets();
+    const searchTerm = String(search || '').trim().toLowerCase();
     const filteredPresets = filter === 'Všetky'
         ? presets
         : presets.filter((preset) => getPresetMacroGroup(preset) === filter);
+    const visiblePresets = searchTerm
+        ? filteredPresets.filter((preset) => `${preset.name} ${preset.category}`.toLowerCase().includes(searchTerm))
+        : filteredPresets;
 
     list.innerHTML = '';
 
-    if (!filteredPresets.length) {
+    if (!visiblePresets.length) {
         list.innerHTML = '<div style="font-size:12px;color:#718096;">Žiadne položky pre túto skupinu.</div>';
         return;
     }
 
-    filteredPresets.forEach((preset, visibleIndex) => {
+    visiblePresets.forEach((preset, visibleIndex) => {
         const originalIndex = presets.findIndex((item) => item.name === preset.name && item.kcal === preset.kcal && item.p === preset.p && item.c === preset.c && item.f === preset.f);
         const row = document.createElement('div');
         row.className = 'preset-editor-row';
@@ -200,13 +247,22 @@ function renderPresetEditor(filter = 'Všetky') {
         fInput.dataset.field = 'f';
         fInput.dataset.index = row.dataset.presetIndex;
 
-        row.append(nameInput, categoryInput, kcalInput, pInput, cInput, sugarInput, fInput);
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'preset-btn';
+        deleteBtn.textContent = 'Zmazať';
+        deleteBtn.style.cssText = 'background:#e53e3e;color:#fff;';
+        deleteBtn.dataset.action = 'delete-preset';
+        deleteBtn.dataset.index = row.dataset.presetIndex;
+
+        row.append(nameInput, categoryInput, kcalInput, pInput, cInput, sugarInput, fInput, deleteBtn);
         list.appendChild(row);
     });
 }
 
 function applyFoodPreset(preset) {
     const nameInput = DOM.get('f-name');
+    const searchInput = DOM.get('f-search');
     const kcalInput = DOM.get('f-kcal');
     const pInput = DOM.get('f-p');
     const cInput = DOM.get('f-c');
@@ -215,6 +271,7 @@ function applyFoodPreset(preset) {
     const weightInput = DOM.get('f-weight');
 
     if (nameInput) nameInput.value = preset.name;
+    if (searchInput) searchInput.value = preset.name;
     if (kcalInput) kcalInput.value = preset.kcal;
     if (pInput) pInput.value = preset.p;
     if (cInput) cInput.value = preset.c;
@@ -358,6 +415,9 @@ function addFoodItem() {
     allData[date].push(newItem);
 
     Storage.save(STORAGE_KEYS.FOOD, allData);
+
+    const preset = buildPresetFromForm();
+    if (preset) upsertFoodPreset(preset);
     
     // REAKTÍVNY UPDATE: Vyžiadame prekreslenie dashboardu a zoznamu jedál
     initDashboard();
@@ -367,8 +427,12 @@ function addFoodItem() {
     const form = nameInput?.closest('form');
     if (form) {
         form.reset();
+        const searchInput = DOM.get('f-search');
+        if (searchInput) searchInput.value = '';
+        const suggestions = DOM.get('food-suggestions');
+        if (suggestions) suggestions.classList.remove('open');
     } else {
-        ['f-name', 'f-kcal', 'f-weight', 'f-p', 'f-c', 'f-sugar', 'f-f'].forEach(id => {
+        ['f-search', 'f-name', 'f-kcal', 'f-weight', 'f-p', 'f-c', 'f-sugar', 'f-f'].forEach(id => {
             const el = DOM.get(id);
             if (el) el.value = '';
         });
@@ -409,14 +473,27 @@ window.addEventListener('DOMContentLoaded', () => {
     const closeBtn = document.getElementById('btn-close-preset-editor');
     const saveBtn = document.getElementById('btn-save-preset-editor');
     const macroFilter = document.getElementById('preset-macro-filter');
+    const editorSearch = document.getElementById('preset-editor-search');
+    const foodSearch = DOM.get('f-search');
+    const suggestions = DOM.get('food-suggestions');
 
     editBtn?.addEventListener('click', () => {
-        renderPresetEditor(macroFilter?.value || 'Všetky');
+        renderPresetEditor(macroFilter?.value || 'Všetky', editorSearch?.value || '');
         modal?.classList.add('open');
     });
 
     macroFilter?.addEventListener('change', (event) => {
-        renderPresetEditor(event.target.value);
+        renderPresetEditor(event.target.value, editorSearch?.value || '');
+    });
+
+    editorSearch?.addEventListener('input', () => {
+        renderPresetEditor(macroFilter?.value || 'Všetky', editorSearch.value);
+    });
+
+    foodSearch?.addEventListener('input', renderFoodSuggestions);
+    foodSearch?.addEventListener('focus', renderFoodSuggestions);
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('.food-suggest-wrap')) suggestions?.classList.remove('open');
     });
 
     closeBtn?.addEventListener('click', () => modal?.classList.remove('open'));
@@ -428,9 +505,14 @@ window.addEventListener('DOMContentLoaded', () => {
         const rows = document.querySelectorAll('#preset-editor-list .preset-editor-row');
         const presets = getFoodPresets();
         const updated = presets.map((preset) => ({ ...preset }));
+        const deleted = new Set();
 
         rows.forEach((row) => {
             const index = Number(row.dataset.presetIndex);
+            if (row.dataset.deleted === 'true') {
+                deleted.add(index);
+                return;
+            }
             const inputs = row.querySelectorAll('input');
             if (!updated[index]) return;
             const kcal = Math.max(0, Number(inputs[2]?.value) || 0);
@@ -450,9 +532,20 @@ window.addEventListener('DOMContentLoaded', () => {
             };
         });
 
-        saveFoodPresets(updated.map(normalizeFoodPreset));
+        saveFoodPresets(updated.filter((_, index) => !deleted.has(index)).map(normalizeFoodPreset));
         renderFoodPresets();
+        renderFoodSuggestions();
         modal?.classList.remove('open');
+    });
+
+    document.getElementById('preset-editor-list')?.addEventListener('click', (event) => {
+        const btn = event.target.closest('button[data-action="delete-preset"]');
+        if (!btn) return;
+        const row = btn.closest('.preset-editor-row');
+        if (!row) return;
+        row.dataset.deleted = 'true';
+        row.style.opacity = '0.45';
+        row.style.textDecoration = 'line-through';
     });
 });
 

@@ -29,7 +29,14 @@
         .modal-card{background:#fff;border-radius:10px;padding:12px;width:min(760px,96vw);max-height:90vh;overflow:auto}
         .modal-card input, .modal-card select {width:100%;box-sizing:border-box}
         .preset-editor-wrap{width:100%;overflow-x:auto;padding-bottom:6px}
-        .preset-editor-row{display:grid;grid-template-columns:150px 120px repeat(5,86px);gap:6px;margin-bottom:8px;align-items:center;min-width:710px}
+        .preset-editor-row{display:grid;grid-template-columns:150px 120px repeat(5,86px) 88px;gap:6px;margin-bottom:8px;align-items:center;min-width:804px}
+        .food-suggest-wrap{position:relative}
+        .food-suggestions{display:none;position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 18px rgba(15,23,42,.12);max-height:220px;overflow:auto}
+        .food-suggestions.open{display:block}
+        .food-suggestion{display:flex;justify-content:space-between;gap:8px;width:100%;padding:10px;border:0;border-bottom:1px solid #edf2f7;background:#fff;color:#2d3748;text-align:left;border-radius:0}
+        .food-suggestion strong{display:block;font-size:14px}
+        .food-suggestion span{font-size:11px;color:#718096}
+        .food-suggestion:active{transform:none;background:#ebf8ff}
         .metric-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
         .meal-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
         .chart-container{width:100%;overflow:hidden}
@@ -131,12 +138,12 @@
         
         <div class="card">
             <h3>➕ Zapísať jedlo do dňa</h3>
-            <div style="font-size:12px;color:#718096;margin-bottom:8px;">Rýchle jedlá podľa kategórií — klikni a potom zadaj presné množstvo v gramoch.</div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <div id="food-presets" class="preset-row" style="margin-top:0"></div>
-                <button type="button" id="btn-edit-food-presets" class="preset-btn" style="background:#2d3748;color:#fff;">Upraviť jedlá</button>
-            </div>
+            <div style="font-size:12px;color:#718096;margin-bottom:8px;">Vyhľadaj jedlo, vyber z návrhov, zadaj gramy a zapíš ho do dňa. Nové jedlo sa po zápise uloží do databázy.</div>
             <form id="food-form" onsubmit="return false;">
+                <div class="food-suggest-wrap">
+                    <input type="text" id="f-search" placeholder="Hľadať jedlo, napr. ryža">
+                    <div id="food-suggestions" class="food-suggestions"></div>
+                </div>
                 <input type="text" id="f-name" placeholder="Názov jedla">
                 <select id="f-meal">
                     <option value="Raňajky">Raňajky</option>
@@ -158,7 +165,7 @@
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                     <button type="button" id="btn-add-food">Pridať do dňa</button>
-                    <button type="button" id="btn-save-food-preset" class="preset-btn" style="background:#2d3748;color:#fff;">Pridať do databázy</button>
+                    <button type="button" id="btn-edit-food-presets" class="preset-btn" style="background:#2d3748;color:#fff;">Upraviť databázu</button>
                 </div>
             </form>
         </div>
@@ -296,14 +303,16 @@
 
     <div id="food-preset-modal" class="modal" aria-hidden="true">
         <div class="modal-card">
-            <h3 style="margin-top:0;">Upraviť rýchle jedlá</h3>
-            <label style="font-size:12px;color:#718096;">Vyber skupinu pre úpravu</label>
-            <select id="preset-macro-filter" style="width:100%;margin:6px 0 8px;">
-                <option value="Všetky">Všetky</option>
-                <option value="Sacharidy">Sacharidy</option>
-                <option value="Bielkoviny">Bielkoviny</option>
-                <option value="Tuky">Tuky</option>
-            </select>
+            <h3 style="margin-top:0;">Upraviť databázu jedál</h3>
+            <div style="display:grid;grid-template-columns:1fr 160px;gap:8px;">
+                <input type="text" id="preset-editor-search" placeholder="Hľadať v databáze">
+                <select id="preset-macro-filter" style="width:100%;margin:0 0 8px;">
+                    <option value="Všetky">Všetky</option>
+                    <option value="Sacharidy">Sacharidy</option>
+                    <option value="Bielkoviny">Bielkoviny</option>
+                    <option value="Tuky">Tuky</option>
+                </select>
+            </div>
             <div class="preset-editor-wrap">
                 <div id="preset-editor-list"></div>
             </div>

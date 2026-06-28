@@ -6,10 +6,6 @@ function attachAppInteractions() {
         if (typeof addFoodItem === 'function') addFoodItem();
     });
 
-    document.getElementById('btn-save-food-preset')?.addEventListener('click', () => {
-        if (typeof saveCurrentFoodAsPreset === 'function') saveCurrentFoodAsPreset();
-    });
-
     addSportBtn?.addEventListener('click', () => {
         if (typeof addSportItem === 'function') addSportItem();
     });
