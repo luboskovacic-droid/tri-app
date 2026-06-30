@@ -40,6 +40,11 @@ function getDailyKcalTarget() {
     return Math.round(bmr * activityFactor);
 }
 
+function getAthleteWeight() {
+    const bio = getBioProfile();
+    return Math.max(45, Number(bio?.weight) || 70);
+}
+
 function getDayDifference(fromDate, targetDate) {
     const from = new Date(`${fromDate}T00:00:00`);
     const target = new Date(`${targetDate}T00:00:00`);
@@ -105,6 +110,67 @@ function getSugarTargetForDate(date) {
     });
 
     return totalSugar;
+}
+
+function getTrainingContextForDate(date) {
+    const sportsStore = Storage.get(STORAGE_KEYS.SPORTS);
+    const items = sportsStore[date] || [];
+    if (!Array.isArray(items) || !items.length) return { type: 'rest', label: 'Voľno', items: [] };
+    const hasStrength = items.some(item => item.template === 'fitko' || item.intensityKey === 'strength');
+    const hasRace = items.some(item => item.intensityKey === 'race' || item.template === 'triathlon' || item.template === 'duathlon');
+    const hasHigh = items.some(item => item.intensityKey === 'high' || Number(item.carbload) > 120);
+    if (hasRace) return { type: 'race', label: 'Výkon/súťaž', items };
+    if (hasHigh) return { type: 'high', label: 'Vysoká záťaž', items };
+    if (hasStrength) return { type: 'strength', label: 'Fitko/sila', items };
+    return { type: 'endurance', label: 'Tréning', items };
+}
+
+function getMacroTargetsForDate(date) {
+    const weight = getAthleteWeight();
+    const context = getTrainingContextForDate(date);
+    const carbloadBonusGrams = getCarbloadBonusForDate(date);
+    const sugarTargetGrams = getSugarTargetForDate(date);
+    let protein = Math.round(weight * 1.8);
+    let carbs = Math.round(weight * 3.0) + carbloadBonusGrams;
+    let fat = Math.round(weight * 0.8);
+
+    if (context.type === 'strength') {
+        protein = Math.round(weight * 2.0);
+        carbs = Math.round(weight * 2.4) + carbloadBonusGrams;
+        fat = Math.round(weight * 0.9);
+    } else if (context.type === 'high' || context.type === 'race') {
+        protein = Math.round(weight * 1.7);
+        carbs = Math.round(weight * 3.5) + carbloadBonusGrams;
+        fat = Math.round(weight * 0.55);
+    } else if (context.type === 'rest') {
+        protein = Math.round(weight * 1.8);
+        carbs = Math.round(weight * 2.2);
+        fat = Math.round(weight * 0.9);
+    }
+
+    return {
+        kcal: getDailyKcalTarget() + (carbloadBonusGrams * KCAL_PER_GRAM_CARB),
+        p: protein,
+        c: carbs,
+        f: fat,
+        sugar: sugarTargetGrams,
+        context
+    };
+}
+
+function getFoodStrategyForDate(date) {
+    const targets = getMacroTargetsForDate(date);
+    const context = targets.context;
+    if (context.type === 'race' || context.type === 'high') {
+        return 'Pred výkonom: low-fat, low-fiber, high-carb. Cukry drž v oknách podľa carbload plánu.';
+    }
+    if (context.type === 'strength') {
+        return 'Fitko: viac bielkovín, sacharidy okolo tréningu, tuky mimo okna pred tréningom.';
+    }
+    if (context.type === 'rest') {
+        return 'Voľno: drž bielkoviny, sacharidy nižšie, cukry len podľa jedál.';
+    }
+    return 'Tréning: sacharidy pred/po výkone, tuk a vlákninu radšej mimo tréningové okno.';
 }
 
 function buildCarbloadPlanForDate(date) {
@@ -310,14 +376,10 @@ function initDashboard() {
         return acc;
     }, { kcal: 0, p: 0, c: 0, sugar: 0, f: 0 });
 
-    // 2. Výpočet Carbload bonusu pre vybraný deň
-    const carbloadBonusGrams = getCarbloadBonusForDate(date);
-    const sugarTargetGrams = getSugarTargetForDate(date);
-
-    // 3. Výpočet dynamických cieľov
-    const bioKcalTarget = getDailyKcalTarget();
-    const dynamicCarbTarget = BASE_TARGETS.c + carbloadBonusGrams;
-    const dynamicKcalTarget = bioKcalTarget + (carbloadBonusGrams * KCAL_PER_GRAM_CARB);
+    // 2. Dynamické ciele podľa hmotnosti a typu dňa
+    const macroTargets = getMacroTargetsForDate(date);
+    const dynamicCarbTarget = macroTargets.c;
+    const dynamicKcalTarget = macroTargets.kcal;
     const remainingKcal = dynamicKcalTarget - Math.round(foodTotals.kcal);
 
     // 4. Ultra-bezpečný render do UI (XSS imunita)
@@ -334,10 +396,10 @@ function initDashboard() {
         if (el) el.textContent = `${current.toFixed(0)}/${target}`;
     };
 
-    setMacroText('p-total', foodTotals.p, BASE_TARGETS.p);
+    setMacroText('p-total', foodTotals.p, macroTargets.p);
     setMacroText('c-total', foodTotals.c, dynamicCarbTarget);
-    setMacroText('sugar-total', foodTotals.sugar, sugarTargetGrams);
-    setMacroText('f-total', foodTotals.f, BASE_TARGETS.f);
+    setMacroText('sugar-total', foodTotals.sugar, macroTargets.sugar);
+    setMacroText('f-total', foodTotals.f, macroTargets.f);
 
     // 5. Grafický progress bar (Kruh)
     const kcalCircle = DOM.get('kcalCircle');
@@ -352,6 +414,7 @@ function initDashboard() {
     }
     
     renderCarbloadPlanCard(date);
+    if (typeof renderFoodDayMetrics === 'function') renderFoodDayMetrics(date);
 
     if (typeof updateSportsDashboardSummary === "function") {
         updateSportsDashboardSummary();

@@ -29,7 +29,7 @@
         .modal-card{background:#fff;border-radius:10px;padding:12px;width:min(760px,96vw);max-height:90vh;overflow:auto}
         .modal-card input, .modal-card select {width:100%;box-sizing:border-box}
         .preset-editor-wrap{width:100%;overflow-x:auto;padding-bottom:6px}
-        .preset-editor-row{display:grid;grid-template-columns:150px 120px repeat(5,86px) 88px;gap:6px;margin-bottom:8px;align-items:center;min-width:804px}
+        .preset-editor-row{display:grid;grid-template-columns:150px 120px repeat(8,86px) 88px;gap:6px;margin-bottom:8px;align-items:center;min-width:1062px}
         .food-suggest-wrap{position:relative}
         .food-suggestions{display:none;position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 18px rgba(15,23,42,.12);max-height:220px;overflow:auto}
         .food-suggestions.open{display:block}
@@ -37,6 +37,14 @@
         .food-suggestion strong{display:block;font-size:14px}
         .food-suggestion span{font-size:11px;color:#718096}
         .food-suggestion:active{transform:none;background:#ebf8ff}
+        .macro-rings{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+        .macro-ring{height:74px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:conic-gradient(#48bb78 0deg,#e2e8f0 0deg)}
+        .macro-ring-inner{width:58px;height:58px;border-radius:999px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px}
+        .macro-ring-inner strong{font-size:12px}
+        .day-timeline{display:grid;gap:6px}
+        .timeline-slot{display:grid;grid-template-columns:96px 1fr;gap:8px;align-items:start;padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#fff}
+        .timeline-slot b{font-size:12px}
+        .timeline-slot span{font-size:12px;color:#4a5568}
         .metric-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
         .meal-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
         .chart-container{width:100%;overflow:hidden}
@@ -53,6 +61,8 @@
             .nav-bar{font-size:14px}
             .meal-grid{grid-template-columns:1fr}
             .metric-grid-4{grid-template-columns:repeat(2,1fr)}
+            .macro-rings{grid-template-columns:repeat(2,1fr)}
+            .timeline-slot{grid-template-columns:82px 1fr}
         }
         @media (orientation: landscape) and (max-height: 520px){
             .modal{align-items:flex-start;padding:8px}
@@ -109,7 +119,7 @@
 
         <!-- Grafická analýza posledných 5 dní -->
         <div class="card">
-            <h3>📊 Analýza kalórií (Posledných 5 dní)</h3>
+            <h3>📊 Analýza kalórií (7 dní)</h3>
             <div class="chart-container">
                 <svg id="kcalChart" width="100%" height="170" viewBox="0 0 300 170" preserveAspectRatio="none">
                     <!-- Osi a stĺpce sa vygenerujú čisto cez JS -->
@@ -135,6 +145,21 @@
         <div class="card">
             <input type="date" id="food-date-picker">
         </div>
+
+        <div class="card">
+            <h3>🎯 Ciele dňa</h3>
+            <div class="macro-rings">
+                <div class="macro-ring" id="food-ring-c"><div class="macro-ring-inner"><strong id="food-ring-c-text">0/0</strong><span>S</span></div></div>
+                <div class="macro-ring" id="food-ring-p"><div class="macro-ring-inner"><strong id="food-ring-p-text">0/0</strong><span>B</span></div></div>
+                <div class="macro-ring" id="food-ring-f"><div class="macro-ring-inner"><strong id="food-ring-f-text">0/0</strong><span>T</span></div></div>
+                <div class="macro-ring" id="food-ring-sugar"><div class="macro-ring-inner"><strong id="food-ring-sugar-text">0/0</strong><span>Cukry</span></div></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>⏱️ Časová os dňa</h3>
+            <div id="food-day-timeline" class="day-timeline"></div>
+        </div>
         
         <div class="card">
             <h3>➕ Zapísať jedlo do dňa</h3>
@@ -153,6 +178,12 @@
                     <option value="Večera">Večera</option>
                     <option value="Druhá večera">Druhá večera</option>
                 </select>
+                <select id="f-timing">
+                    <option value="normal">Bežné jedlo</option>
+                    <option value="preworkout">Pre-workout</option>
+                    <option value="postworkout">Post-workout</option>
+                    <option value="between">Medzi tréningami</option>
+                </select>
                 <div class="grid-2">
                     <input type="number" id="f-kcal" placeholder="Kcal / 100g" min="0">
                     <input type="number" id="f-weight" placeholder="Množstvo v g" min="0">
@@ -163,10 +194,20 @@
                     <input type="number" id="f-sugar" placeholder="Cukry (g)" min="0" step="0.1">
                     <input type="number" id="f-f" placeholder="T (g)" min="0" step="0.1">
                 </div>
+                <div class="grid-3">
+                    <input type="number" id="f-gi" placeholder="GI" min="0" max="100">
+                    <select id="f-complexity">
+                        <option value="medium">Stredné sacharidy</option>
+                        <option value="simple">Rýchle sacharidy</option>
+                        <option value="complex">Komplexné sacharidy</option>
+                    </select>
+                    <input type="number" id="f-fiber" placeholder="Vláknina (g)" min="0" step="0.1">
+                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                     <button type="button" id="btn-add-food">Pridať do dňa</button>
                     <button type="button" id="btn-edit-food-presets" class="preset-btn" style="background:#2d3748;color:#fff;">Upraviť databázu</button>
                 </div>
+                <div id="food-evaluation" class="info-box" style="display:none;background:#f0fff4;border-left-color:#48bb78;"></div>
             </form>
         </div>
         
@@ -381,7 +422,7 @@
             tabs.forEach(tab => tab.btn?.addEventListener('click', () => switchTab(tab.id, tab.btn)));
 
             // Rýchla analytika: načítaj posledných 5 dní a vykresli jednoduchý SVG bar chart
-            try { renderKcalSparkline(5); renderTodaySummary(); } catch (e) { console.error(e); }
+            try { renderKcalSparkline(7); renderTodaySummary(); } catch (e) { console.error(e); }
 
             // Načítaj uložený bio profil do formulára
             try { loadBio(); } catch (e) { console.warn(e); }
@@ -413,7 +454,7 @@
                 localStorage.setItem('tri_user_bio_v1', JSON.stringify(bio));
                 const hint = document.getElementById('bio-saved'); if (hint) { hint.style.display = 'inline'; setTimeout(()=>hint.style.display='none',1500); }
                 try {
-                    renderKcalSparkline(5);
+                    renderKcalSparkline(7);
                     renderTodaySummary();
                     if (typeof initDashboard === 'function') initDashboard();
                     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {

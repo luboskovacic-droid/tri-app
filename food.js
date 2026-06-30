@@ -29,7 +29,14 @@ const DEFAULT_FOOD_PRESETS = [
 function normalizeFoodPreset(preset) {
     const carbs = Number(preset.c) || 0;
     const sugar = Math.min(carbs, Math.max(0, Number(preset.sugar) || 0));
-    return { ...preset, sugar, category: preset.category || 'Ostatné' };
+    return {
+        ...preset,
+        sugar,
+        gi: Math.max(0, Math.min(100, Number(preset.gi) || 0)),
+        complexity: preset.complexity || 'medium',
+        fiber: Math.max(0, Number(preset.fiber) || 0),
+        category: preset.category || 'Ostatné'
+    };
 }
 
 function getFoodPresets() {
@@ -84,6 +91,10 @@ function buildPresetFromForm() {
         c: carbs,
         sugar: Math.min(carbs, Math.max(0, Number(DOM.get('f-sugar')?.value) || 0)),
         f: Math.max(0, Number(DOM.get('f-f')?.value) || 0)
+        ,
+        gi: Math.max(0, Math.min(100, Number(DOM.get('f-gi')?.value) || 0)),
+        complexity: DOM.get('f-complexity')?.value || 'medium',
+        fiber: Math.max(0, Number(DOM.get('f-fiber')?.value) || 0)
     });
 }
 
@@ -109,7 +120,7 @@ function renderFoodSuggestions() {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'food-suggestion';
-        btn.innerHTML = `<strong>${escapeFoodHtml(preset.name)}</strong><span>${escapeFoodHtml(preset.category || 'Ostatné')} · ${preset.kcal} kcal · B ${preset.p} / S ${preset.c} / Cukry ${preset.sugar || 0} / T ${preset.f}</span>`;
+        btn.innerHTML = `<strong>${escapeFoodHtml(preset.name)}</strong><span>${escapeFoodHtml(preset.category || 'Ostatné')} · ${preset.kcal} kcal · B ${preset.p} / S ${preset.c} / Cukry ${preset.sugar || 0} / T ${preset.f} · GI ${preset.gi || 0}</span>`;
         btn.addEventListener('click', () => {
             applyFoodPreset(preset);
             searchInput.value = preset.name;
@@ -247,6 +258,27 @@ function renderPresetEditor(filter = 'Všetky', search = '') {
         fInput.dataset.field = 'f';
         fInput.dataset.index = row.dataset.presetIndex;
 
+        const giInput = document.createElement('input');
+        giInput.type = 'number';
+        giInput.value = preset.gi || 0;
+        giInput.placeholder = 'GI';
+        giInput.dataset.field = 'gi';
+        giInput.dataset.index = row.dataset.presetIndex;
+
+        const complexityInput = document.createElement('input');
+        complexityInput.value = preset.complexity || 'medium';
+        complexityInput.placeholder = 'simple/medium/complex';
+        complexityInput.dataset.field = 'complexity';
+        complexityInput.dataset.index = row.dataset.presetIndex;
+
+        const fiberInput = document.createElement('input');
+        fiberInput.type = 'number';
+        fiberInput.step = '0.1';
+        fiberInput.value = preset.fiber || 0;
+        fiberInput.placeholder = 'Vláknina';
+        fiberInput.dataset.field = 'fiber';
+        fiberInput.dataset.index = row.dataset.presetIndex;
+
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
         deleteBtn.className = 'preset-btn';
@@ -255,7 +287,7 @@ function renderPresetEditor(filter = 'Všetky', search = '') {
         deleteBtn.dataset.action = 'delete-preset';
         deleteBtn.dataset.index = row.dataset.presetIndex;
 
-        row.append(nameInput, categoryInput, kcalInput, pInput, cInput, sugarInput, fInput, deleteBtn);
+        row.append(nameInput, categoryInput, kcalInput, pInput, cInput, sugarInput, fInput, giInput, complexityInput, fiberInput, deleteBtn);
         list.appendChild(row);
     });
 }
@@ -268,6 +300,9 @@ function applyFoodPreset(preset) {
     const cInput = DOM.get('f-c');
     const sugarInput = DOM.get('f-sugar');
     const fInput = DOM.get('f-f');
+    const giInput = DOM.get('f-gi');
+    const complexityInput = DOM.get('f-complexity');
+    const fiberInput = DOM.get('f-fiber');
     const weightInput = DOM.get('f-weight');
 
     if (nameInput) nameInput.value = preset.name;
@@ -277,6 +312,9 @@ function applyFoodPreset(preset) {
     if (cInput) cInput.value = preset.c;
     if (sugarInput) sugarInput.value = preset.sugar || 0;
     if (fInput) fInput.value = preset.f;
+    if (giInput) giInput.value = preset.gi || '';
+    if (complexityInput) complexityInput.value = preset.complexity || 'medium';
+    if (fiberInput) fiberInput.value = preset.fiber || '';
     if (weightInput) weightInput.value = 100;
 
     if (nameInput) nameInput.focus();
@@ -340,7 +378,8 @@ function loadFoodDay() {
         const macrosSpan = document.createElement('span');
         macrosSpan.style.cssText = 'font-size: 11px; color: #718096;';
         const sugar = Math.min(Number(item.c) || 0, Math.max(0, Number(item.sugar) || 0));
-        macrosSpan.textContent = `B: ${item.p.toFixed(1)}g | S: ${item.c.toFixed(1)}g | Cukry: ${sugar.toFixed(1)}g | T: ${item.f.toFixed(1)}g`;
+        const timing = item.timing && item.timing !== 'normal' ? ` | ${formatFoodTiming(item.timing)}` : '';
+        macrosSpan.textContent = `B: ${item.p.toFixed(1)}g | S: ${item.c.toFixed(1)}g | Cukry: ${sugar.toFixed(1)}g | T: ${item.f.toFixed(1)}g | GI: ${item.gi || 0}${timing}`;
 
         leftDiv.append(titleEl, weightEl, br, macrosSpan);
 
@@ -380,12 +419,16 @@ function addFoodItem() {
     
     const nameInput = DOM.get('f-name');
     const mealInput = DOM.get('f-meal');
+    const timingInput = DOM.get('f-timing');
     const weightInput = DOM.get('f-weight');
     const kcalInput = DOM.get('f-kcal');
     const pInput = DOM.get('f-p');
     const cInput = DOM.get('f-c');
     const sugarInput = DOM.get('f-sugar');
     const fInput = DOM.get('f-f');
+    const giInput = DOM.get('f-gi');
+    const complexityInput = DOM.get('f-complexity');
+    const fiberInput = DOM.get('f-fiber');
 
     const name = nameInput?.value.trim() || 'Jedlo';
     const weight = Math.max(0, parseFloat(weightInput?.value) || 100);
@@ -401,12 +444,16 @@ function addFoodItem() {
         id: crypto.randomUUID?.() || Date.now().toString(),
         name,
         meal: mealInput?.value || 'Raňajky',
+        timing: timingInput?.value || 'normal',
         weight,
         kcal: Math.round(getNutrient(kcalInput) * multiplier),
         p: Math.round(getNutrient(pInput) * multiplier * 10) / 10,
         c: carbs,
         sugar,
         f: Math.round(getNutrient(fInput) * multiplier * 10) / 10,
+        gi: Math.max(0, Math.min(100, Number(giInput?.value) || 0)),
+        complexity: complexityInput?.value || 'medium',
+        fiber: Math.round(getNutrient(fiberInput) * multiplier * 10) / 10,
         createdAt: new Date().toISOString()
     };
 
@@ -422,6 +469,8 @@ function addFoodItem() {
     // REAKTÍVNY UPDATE: Vyžiadame prekreslenie dashboardu a zoznamu jedál
     initDashboard();
     loadFoodDay();
+    renderFoodDayMetrics(date);
+    evaluateLoggedFood(newItem, date);
 
     // Vyčistenie formulára natívne (ak existuje form podval) alebo manuálne cez cache
     const form = nameInput?.closest('form');
@@ -432,11 +481,94 @@ function addFoodItem() {
         const suggestions = DOM.get('food-suggestions');
         if (suggestions) suggestions.classList.remove('open');
     } else {
-        ['f-search', 'f-name', 'f-kcal', 'f-weight', 'f-p', 'f-c', 'f-sugar', 'f-f'].forEach(id => {
+        ['f-search', 'f-name', 'f-kcal', 'f-weight', 'f-p', 'f-c', 'f-sugar', 'f-f', 'f-gi', 'f-fiber'].forEach(id => {
             const el = DOM.get(id);
             if (el) el.value = '';
         });
     }
+}
+
+function formatFoodTiming(value) {
+    if (value === 'preworkout') return 'Pre-workout';
+    if (value === 'postworkout') return 'Post-workout';
+    if (value === 'between') return 'Medzi tréningami';
+    return 'Bežné';
+}
+
+function getFoodTotalsForDate(date) {
+    return (Storage.get(STORAGE_KEYS.FOOD)[date] || []).reduce((acc, item) => {
+        acc.kcal += Number(item.kcal) || 0;
+        acc.p += Number(item.p) || 0;
+        acc.c += Number(item.c) || 0;
+        acc.sugar += Math.min(Number(item.c) || 0, Math.max(0, Number(item.sugar) || 0));
+        acc.f += Number(item.f) || 0;
+        return acc;
+    }, { kcal: 0, p: 0, c: 0, sugar: 0, f: 0 });
+}
+
+function setFoodRing(id, textId, current, target) {
+    const ring = DOM.get(id);
+    const text = DOM.get(textId);
+    const pct = target > 0 ? current / target : 0;
+    const degrees = Math.min(360, pct * 360);
+    let color = '#48bb78';
+    if (pct >= 1.5) color = '#e53e3e';
+    else if (pct > 1.15) color = '#ed8936';
+    else if (pct > 1) color = '#ecc94b';
+    if (ring) ring.style.background = `conic-gradient(${color} ${degrees}deg,#e2e8f0 ${degrees}deg)`;
+    if (text) text.textContent = `${Math.round(current)}/${Math.round(target)}`;
+}
+
+function renderFoodDayMetrics(date = AppState.selectedDate) {
+    const totals = getFoodTotalsForDate(date);
+    const targets = typeof getMacroTargetsForDate === 'function'
+        ? getMacroTargetsForDate(date)
+        : { c: 200, p: 150, f: 65, sugar: 0 };
+    setFoodRing('food-ring-c', 'food-ring-c-text', totals.c, targets.c);
+    setFoodRing('food-ring-p', 'food-ring-p-text', totals.p, targets.p);
+    setFoodRing('food-ring-f', 'food-ring-f-text', totals.f, targets.f);
+    setFoodRing('food-ring-sugar', 'food-ring-sugar-text', totals.sugar, targets.sugar);
+    renderFoodTimeline(date);
+}
+
+function renderFoodTimeline(date = AppState.selectedDate) {
+    const el = DOM.get('food-day-timeline');
+    if (!el) return;
+    const sports = Storage.get(STORAGE_KEYS.SPORTS)[date] || [];
+    const foods = Storage.get(STORAGE_KEYS.FOOD)[date] || [];
+    const slots = [
+        { label: 'Ráno', filter: item => ['Raňajky', 'Desiata'].includes(item.meal) },
+        { label: 'Pre-workout', filter: item => item.timing === 'preworkout' },
+        { label: 'Post-workout', filter: item => item.timing === 'postworkout' },
+        { label: 'Medzi tréningami', filter: item => item.timing === 'between' },
+        { label: 'Večer', filter: item => ['Večera', 'Druhá večera'].includes(item.meal) }
+    ];
+
+    el.innerHTML = slots.map(slot => {
+        const slotFoods = foods.filter(slot.filter);
+        const foodText = slotFoods.length
+            ? slotFoods.map(item => `${escapeFoodHtml(item.name)} ${Math.round(Number(item.c) || 0)}g S`).join(', ')
+            : 'bez zápisu';
+        const trainingText = sports.length && (slot.label.includes('workout') || slot.label === 'Medzi tréningami')
+            ? sports.map(item => `${escapeFoodHtml(item.startTime || '??:??')} ${escapeFoodHtml(item.title || 'Tréning')}`).join(', ')
+            : '';
+        return `<div class="timeline-slot"><b>${slot.label}</b><span>${trainingText ? `${trainingText}<br>` : ''}${foodText}</span></div>`;
+    }).join('');
+}
+
+function evaluateLoggedFood(item, date) {
+    const box = DOM.get('food-evaluation');
+    if (!box) return;
+    const strategy = typeof getFoodStrategyForDate === 'function' ? getFoodStrategyForDate(date) : '';
+    const warnings = [];
+    if (item.timing === 'preworkout') {
+        if ((Number(item.f) || 0) > 12) warnings.push('pred tréningom zníž tuk');
+        if ((Number(item.fiber) || 0) > 8) warnings.push('pred tréningom zníž vlákninu');
+        if (item.complexity === 'complex' && (Number(item.gi) || 0) < 55) warnings.push('tesne pred výkonom zvoľ ľahšie sacharidy');
+    }
+    if (item.timing === 'postworkout' && (Number(item.p) || 0) < 20) warnings.push('po výkone doplň viac bielkovín');
+    box.innerHTML = `${strategy}${warnings.length ? `<br><strong>Úprava:</strong> ${warnings.join(', ')}.` : ''}`;
+    box.style.display = 'block';
 }
 
 // 3. Bezpečné zmazanie jedla podľa ID
@@ -462,6 +594,7 @@ function deleteFoodItem(date, itemId) {
 // 4. Integrácia do State Managementu (Doplnenie do setupStateWatchers z minulého kroku)
 AppState.subscribe(() => {
     loadFoodDay(); // Kedykoľvek sa zmení dátum v AppState, jedlo sa automaticky načíta nanovo
+    renderFoodDayMetrics();
 });
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -520,6 +653,9 @@ window.addEventListener('DOMContentLoaded', () => {
             const carbs = Math.max(0, Number(inputs[4]?.value) || 0);
             const sugar = Math.min(carbs, Math.max(0, Number(inputs[5]?.value) || 0));
             const fat = Math.max(0, Number(inputs[6]?.value) || 0);
+            const gi = Math.max(0, Math.min(100, Number(inputs[7]?.value) || 0));
+            const complexity = ['simple', 'medium', 'complex'].includes(inputs[8]?.value) ? inputs[8].value : 'medium';
+            const fiber = Math.max(0, Number(inputs[9]?.value) || 0);
             updated[index] = {
                 ...updated[index],
                 name: inputs[0]?.value?.trim() || updated[index].name,
@@ -528,7 +664,10 @@ window.addEventListener('DOMContentLoaded', () => {
                 p: protein,
                 c: carbs,
                 sugar,
-                f: fat
+                f: fat,
+                gi,
+                complexity,
+                fiber
             };
         });
 
@@ -552,4 +691,5 @@ window.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('storage', () => {
     renderFoodPresets();
     renderPresetEditor();
+    renderFoodDayMetrics();
 });

@@ -477,6 +477,8 @@ function safelyRefreshUI() {
     try {
         // Aktualizuj zobrazenie pre vybraný deň
         loadSportDay();
+        if (typeof initDashboard === 'function') initDashboard();
+        if (typeof renderFoodDayMetrics === 'function') renderFoodDayMetrics();
 
         // Vysielame CustomEvent, aby sa prípadné kalendáre (FullCalendar atď.) vedeli synchronizovať
         const all = getSportsCalendar();
