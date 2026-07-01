@@ -148,14 +148,26 @@ function getMacroTargetsForDate(date) {
         fat = Math.round(weight * 0.9);
     }
 
+    const macroKcal = (protein * 4) + (carbs * 4) + (fat * 9);
+    const baseKcal = getDailyKcalTarget() + (carbloadBonusGrams * KCAL_PER_GRAM_CARB);
+
     return {
-        kcal: getDailyKcalTarget() + (carbloadBonusGrams * KCAL_PER_GRAM_CARB),
+        kcal: Math.round(Math.max(baseKcal, macroKcal)),
         p: protein,
         c: carbs,
         f: fat,
         sugar: sugarTargetGrams,
         context
     };
+}
+
+function getHydrationTargetsForDate(date) {
+    const weight = getAthleteWeight();
+    const context = getTrainingContextForDate(date);
+    const minutes = context.items.reduce((sum, item) => sum + (Number(item.duration) || 0), 0);
+    const min = Math.round((weight * 30) + (minutes * 6));
+    const max = Math.round((weight * 45) + (minutes * 10));
+    return { min, max };
 }
 
 function getFoodStrategyForDate(date) {

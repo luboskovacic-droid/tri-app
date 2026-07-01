@@ -35,6 +35,11 @@ function normalizeFoodPreset(preset) {
         gi: Math.max(0, Math.min(100, Number(preset.gi) || 0)),
         complexity: preset.complexity || 'medium',
         fiber: Math.max(0, Number(preset.fiber) || 0),
+        water: Math.max(0, Number(preset.water) || 0),
+        salt: Math.max(0, Number(preset.salt) || 0),
+        magnesium: Math.max(0, Number(preset.magnesium) || 0),
+        potassium: Math.max(0, Number(preset.potassium) || 0),
+        amino: Math.max(0, Number(preset.amino) || 0),
         category: preset.category || 'Ostatné'
     };
 }
@@ -90,11 +95,15 @@ function buildPresetFromForm() {
         p: Math.max(0, Number(DOM.get('f-p')?.value) || 0),
         c: carbs,
         sugar: Math.min(carbs, Math.max(0, Number(DOM.get('f-sugar')?.value) || 0)),
-        f: Math.max(0, Number(DOM.get('f-f')?.value) || 0)
-        ,
+        f: Math.max(0, Number(DOM.get('f-f')?.value) || 0),
         gi: Math.max(0, Math.min(100, Number(DOM.get('f-gi')?.value) || 0)),
         complexity: DOM.get('f-complexity')?.value || 'medium',
-        fiber: Math.max(0, Number(DOM.get('f-fiber')?.value) || 0)
+        fiber: Math.max(0, Number(DOM.get('f-fiber')?.value) || 0),
+        water: Math.max(0, Number(DOM.get('f-water')?.value) || 0),
+        salt: Math.max(0, Number(DOM.get('f-salt')?.value) || 0),
+        magnesium: Math.max(0, Number(DOM.get('f-magnesium')?.value) || 0),
+        potassium: Math.max(0, Number(DOM.get('f-potassium')?.value) || 0),
+        amino: Math.max(0, Number(DOM.get('f-amino')?.value) || 0)
     });
 }
 
@@ -120,7 +129,7 @@ function renderFoodSuggestions() {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'food-suggestion';
-        btn.innerHTML = `<strong>${escapeFoodHtml(preset.name)}</strong><span>${escapeFoodHtml(preset.category || 'Ostatné')} · ${preset.kcal} kcal · B ${preset.p} / S ${preset.c} / Cukry ${preset.sugar || 0} / T ${preset.f} · GI ${preset.gi || 0}</span>`;
+        btn.innerHTML = `<strong>${escapeFoodHtml(preset.name)}</strong><span>${escapeFoodHtml(preset.category || 'Ostatné')} · ${preset.kcal} kcal · B ${preset.p} / S ${preset.c} / Cukry ${preset.sugar || 0} / T ${preset.f} · GI ${preset.gi || 0} · Mg ${preset.magnesium || 0}</span>`;
         btn.addEventListener('click', () => {
             applyFoodPreset(preset);
             searchInput.value = preset.name;
@@ -279,6 +288,28 @@ function renderPresetEditor(filter = 'Všetky', search = '') {
         fiberInput.dataset.field = 'fiber';
         fiberInput.dataset.index = row.dataset.presetIndex;
 
+        const magnesiumInput = document.createElement('input');
+        magnesiumInput.type = 'number';
+        magnesiumInput.value = preset.magnesium || 0;
+        magnesiumInput.placeholder = 'Mg';
+
+        const saltInput = document.createElement('input');
+        saltInput.type = 'number';
+        saltInput.step = '0.1';
+        saltInput.value = preset.salt || 0;
+        saltInput.placeholder = 'Soľ';
+
+        const potassiumInput = document.createElement('input');
+        potassiumInput.type = 'number';
+        potassiumInput.value = preset.potassium || 0;
+        potassiumInput.placeholder = 'K';
+
+        const aminoInput = document.createElement('input');
+        aminoInput.type = 'number';
+        aminoInput.step = '0.1';
+        aminoInput.value = preset.amino || 0;
+        aminoInput.placeholder = 'AMK';
+
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
         deleteBtn.className = 'preset-btn';
@@ -287,7 +318,7 @@ function renderPresetEditor(filter = 'Všetky', search = '') {
         deleteBtn.dataset.action = 'delete-preset';
         deleteBtn.dataset.index = row.dataset.presetIndex;
 
-        row.append(nameInput, categoryInput, kcalInput, pInput, cInput, sugarInput, fInput, giInput, complexityInput, fiberInput, deleteBtn);
+        row.append(nameInput, categoryInput, kcalInput, pInput, cInput, sugarInput, fInput, giInput, complexityInput, fiberInput, magnesiumInput, saltInput, potassiumInput, aminoInput, deleteBtn);
         list.appendChild(row);
     });
 }
@@ -303,6 +334,11 @@ function applyFoodPreset(preset) {
     const giInput = DOM.get('f-gi');
     const complexityInput = DOM.get('f-complexity');
     const fiberInput = DOM.get('f-fiber');
+    const waterInput = DOM.get('f-water');
+    const saltInput = DOM.get('f-salt');
+    const magnesiumInput = DOM.get('f-magnesium');
+    const potassiumInput = DOM.get('f-potassium');
+    const aminoInput = DOM.get('f-amino');
     const weightInput = DOM.get('f-weight');
 
     if (nameInput) nameInput.value = preset.name;
@@ -315,6 +351,11 @@ function applyFoodPreset(preset) {
     if (giInput) giInput.value = preset.gi || '';
     if (complexityInput) complexityInput.value = preset.complexity || 'medium';
     if (fiberInput) fiberInput.value = preset.fiber || '';
+    if (waterInput) waterInput.value = preset.water || '';
+    if (saltInput) saltInput.value = preset.salt || '';
+    if (magnesiumInput) magnesiumInput.value = preset.magnesium || '';
+    if (potassiumInput) potassiumInput.value = preset.potassium || '';
+    if (aminoInput) aminoInput.value = preset.amino || '';
     if (weightInput) weightInput.value = 100;
 
     if (nameInput) nameInput.focus();
@@ -379,7 +420,7 @@ function loadFoodDay() {
         macrosSpan.style.cssText = 'font-size: 11px; color: #718096;';
         const sugar = Math.min(Number(item.c) || 0, Math.max(0, Number(item.sugar) || 0));
         const timing = item.timing && item.timing !== 'normal' ? ` | ${formatFoodTiming(item.timing)}` : '';
-        macrosSpan.textContent = `B: ${item.p.toFixed(1)}g | S: ${item.c.toFixed(1)}g | Cukry: ${sugar.toFixed(1)}g | T: ${item.f.toFixed(1)}g | GI: ${item.gi || 0}${timing}`;
+        macrosSpan.textContent = `B: ${item.p.toFixed(1)}g | S: ${item.c.toFixed(1)}g | Cukry: ${sugar.toFixed(1)}g | T: ${item.f.toFixed(1)}g | Vl: ${Number(item.fiber || 0).toFixed(1)}g | Mg: ${item.magnesium || 0}mg | GI: ${item.gi || 0}${timing}`;
 
         leftDiv.append(titleEl, weightEl, br, macrosSpan);
 
@@ -429,6 +470,11 @@ function addFoodItem() {
     const giInput = DOM.get('f-gi');
     const complexityInput = DOM.get('f-complexity');
     const fiberInput = DOM.get('f-fiber');
+    const waterInput = DOM.get('f-water');
+    const saltInput = DOM.get('f-salt');
+    const magnesiumInput = DOM.get('f-magnesium');
+    const potassiumInput = DOM.get('f-potassium');
+    const aminoInput = DOM.get('f-amino');
 
     const name = nameInput?.value.trim() || 'Jedlo';
     const weight = Math.max(0, parseFloat(weightInput?.value) || 100);
@@ -454,6 +500,11 @@ function addFoodItem() {
         gi: Math.max(0, Math.min(100, Number(giInput?.value) || 0)),
         complexity: complexityInput?.value || 'medium',
         fiber: Math.round(getNutrient(fiberInput) * multiplier * 10) / 10,
+        water: Math.round(getNutrient(waterInput) * multiplier),
+        salt: Math.round(getNutrient(saltInput) * multiplier * 10) / 10,
+        magnesium: Math.round(getNutrient(magnesiumInput) * multiplier),
+        potassium: Math.round(getNutrient(potassiumInput) * multiplier),
+        amino: Math.round(getNutrient(aminoInput) * multiplier * 10) / 10,
         createdAt: new Date().toISOString()
     };
 
@@ -481,7 +532,7 @@ function addFoodItem() {
         const suggestions = DOM.get('food-suggestions');
         if (suggestions) suggestions.classList.remove('open');
     } else {
-        ['f-search', 'f-name', 'f-kcal', 'f-weight', 'f-p', 'f-c', 'f-sugar', 'f-f', 'f-gi', 'f-fiber'].forEach(id => {
+        ['f-search', 'f-name', 'f-kcal', 'f-weight', 'f-p', 'f-c', 'f-sugar', 'f-f', 'f-gi', 'f-fiber', 'f-water', 'f-salt', 'f-magnesium', 'f-potassium', 'f-amino'].forEach(id => {
             const el = DOM.get(id);
             if (el) el.value = '';
         });
@@ -502,8 +553,13 @@ function getFoodTotalsForDate(date) {
         acc.c += Number(item.c) || 0;
         acc.sugar += Math.min(Number(item.c) || 0, Math.max(0, Number(item.sugar) || 0));
         acc.f += Number(item.f) || 0;
+        acc.water += Number(item.water) || 0;
+        acc.salt += Number(item.salt) || 0;
+        acc.magnesium += Number(item.magnesium) || 0;
+        acc.potassium += Number(item.potassium) || 0;
+        acc.amino += Number(item.amino) || 0;
         return acc;
-    }, { kcal: 0, p: 0, c: 0, sugar: 0, f: 0 });
+    }, { kcal: 0, p: 0, c: 0, sugar: 0, f: 0, water: 0, salt: 0, magnesium: 0, potassium: 0, amino: 0 });
 }
 
 function setFoodRing(id, textId, current, target) {
@@ -528,7 +584,22 @@ function renderFoodDayMetrics(date = AppState.selectedDate) {
     setFoodRing('food-ring-p', 'food-ring-p-text', totals.p, targets.p);
     setFoodRing('food-ring-f', 'food-ring-f-text', totals.f, targets.f);
     setFoodRing('food-ring-sugar', 'food-ring-sugar-text', totals.sugar, targets.sugar);
+    renderHydrationMetrics(date, totals);
     renderFoodTimeline(date);
+}
+
+function renderHydrationMetrics(date, totals = getFoodTotalsForDate(date)) {
+    const target = typeof getHydrationTargetsForDate === 'function'
+        ? getHydrationTargetsForDate(date)
+        : { min: 2000, max: 3000 };
+    const hydrationEl = DOM.get('hydration-target');
+    const saltEl = DOM.get('salt-total');
+    const magnesiumEl = DOM.get('magnesium-total');
+    const potassiumEl = DOM.get('potassium-total');
+    if (hydrationEl) hydrationEl.textContent = `${(target.min / 1000).toFixed(1)}-${(target.max / 1000).toFixed(1)} l`;
+    if (saltEl) saltEl.textContent = `${totals.salt.toFixed(1)}g`;
+    if (magnesiumEl) magnesiumEl.textContent = `${Math.round(totals.magnesium)}mg`;
+    if (potassiumEl) potassiumEl.textContent = `${Math.round(totals.potassium)}mg`;
 }
 
 function renderFoodTimeline(date = AppState.selectedDate) {
@@ -656,6 +727,10 @@ window.addEventListener('DOMContentLoaded', () => {
             const gi = Math.max(0, Math.min(100, Number(inputs[7]?.value) || 0));
             const complexity = ['simple', 'medium', 'complex'].includes(inputs[8]?.value) ? inputs[8].value : 'medium';
             const fiber = Math.max(0, Number(inputs[9]?.value) || 0);
+            const magnesium = Math.max(0, Number(inputs[10]?.value) || 0);
+            const salt = Math.max(0, Number(inputs[11]?.value) || 0);
+            const potassium = Math.max(0, Number(inputs[12]?.value) || 0);
+            const amino = Math.max(0, Number(inputs[13]?.value) || 0);
             updated[index] = {
                 ...updated[index],
                 name: inputs[0]?.value?.trim() || updated[index].name,
@@ -667,7 +742,11 @@ window.addEventListener('DOMContentLoaded', () => {
                 f: fat,
                 gi,
                 complexity,
-                fiber
+                fiber,
+                magnesium,
+                salt,
+                potassium,
+                amino
             };
         });
 

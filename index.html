@@ -29,7 +29,8 @@
         .modal-card{background:#fff;border-radius:10px;padding:12px;width:min(760px,96vw);max-height:90vh;overflow:auto}
         .modal-card input, .modal-card select {width:100%;box-sizing:border-box}
         .preset-editor-wrap{width:100%;overflow-x:auto;padding-bottom:6px}
-        .preset-editor-row{display:grid;grid-template-columns:150px 120px repeat(8,86px) 88px;gap:6px;margin-bottom:8px;align-items:center;min-width:1062px}
+        .preset-editor-row{display:grid;grid-template-columns:150px 120px repeat(12,86px) 88px;gap:6px;margin-bottom:8px;align-items:center;min-width:1406px}
+        .preset-editor-head{display:grid;grid-template-columns:150px 120px repeat(12,86px) 88px;gap:6px;min-width:1406px;margin-bottom:6px;font-size:11px;font-weight:800;color:#4a5568;text-transform:uppercase}
         .food-suggest-wrap{position:relative}
         .food-suggestions{display:none;position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 18px rgba(15,23,42,.12);max-height:220px;overflow:auto}
         .food-suggestions.open{display:block}
@@ -45,6 +46,9 @@
         .timeline-slot{display:grid;grid-template-columns:96px 1fr;gap:8px;align-items:start;padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#fff}
         .timeline-slot b{font-size:12px}
         .timeline-slot span{font-size:12px;color:#4a5568}
+        .hydration-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+        .hydration-grid b{display:block;font-size:15px}
+        .hydration-grid span{font-size:11px;color:#718096}
         .metric-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
         .meal-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
         .chart-container{width:100%;overflow:hidden}
@@ -63,6 +67,7 @@
             .metric-grid-4{grid-template-columns:repeat(2,1fr)}
             .macro-rings{grid-template-columns:repeat(2,1fr)}
             .timeline-slot{grid-template-columns:82px 1fr}
+            .hydration-grid{grid-template-columns:repeat(2,1fr)}
         }
         @media (orientation: landscape) and (max-height: 520px){
             .modal{align-items:flex-start;padding:8px}
@@ -160,6 +165,16 @@
             <h3>⏱️ Časová os dňa</h3>
             <div id="food-day-timeline" class="day-timeline"></div>
         </div>
+
+        <div class="card">
+            <h3>💧 Hydratácia a minerály</h3>
+            <div class="hydration-grid">
+                <div><b id="hydration-target">0-0 l</b><span>voda min/max</span></div>
+                <div><b id="salt-total">0g</b><span>soľ</span></div>
+                <div><b id="magnesium-total">0mg</b><span>magnézium</span></div>
+                <div><b id="potassium-total">0mg</b><span>draslík</span></div>
+            </div>
+        </div>
         
         <div class="card">
             <h3>➕ Zapísať jedlo do dňa</h3>
@@ -202,6 +217,17 @@
                         <option value="complex">Komplexné sacharidy</option>
                     </select>
                     <input type="number" id="f-fiber" placeholder="Vláknina (g)" min="0" step="0.1">
+                </div>
+                <button type="button" id="btn-gi-help" class="preset-btn" style="width:auto;background:#edf2f7;color:#2d3748;margin-bottom:8px;">GI ?</button>
+                <div id="gi-help" class="info-box" style="display:none;background:#fffaf0;border-left-color:#d69e2e;">GI 0-55 nízky, 56-69 stredný, 70+ vysoký. Pred výkonom sa hodí ľahšie stráviteľný sacharid, mimo výkonu skôr komplexnejší.</div>
+                <div class="grid-3">
+                    <input type="number" id="f-water" placeholder="Voda (ml)" min="0">
+                    <input type="number" id="f-salt" placeholder="Soľ (g)" min="0" step="0.1">
+                    <input type="number" id="f-magnesium" placeholder="Mg (mg)" min="0">
+                </div>
+                <div class="grid-2">
+                    <input type="number" id="f-potassium" placeholder="Draslík (mg)" min="0">
+                    <input type="number" id="f-amino" placeholder="Aminokyseliny (g)" min="0" step="0.1">
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                     <button type="button" id="btn-add-food">Pridať do dňa</button>
@@ -355,6 +381,9 @@
                 </select>
             </div>
             <div class="preset-editor-wrap">
+                <div class="preset-editor-head">
+                    <span>Názov</span><span>Kat.</span><span>kcal</span><span>B</span><span>S</span><span>Cukry</span><span>T</span><span>GI</span><span>Typ S</span><span>Vlákn.</span><span>Mg</span><span>Soľ</span><span>K</span><span>AMK</span><span></span>
+                </div>
                 <div id="preset-editor-list"></div>
             </div>
             <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
@@ -484,8 +513,9 @@
 
             const values = dates.map(date => {
                 const foodK = (foodStore[date] || []).reduce((s,i)=>s+(Number(i.kcal)||0),0);
-                const carb = typeof getCarbloadBonusForDate === 'function' ? getCarbloadBonusForDate(date) : 0;
-                const dynTarget = (typeof getDailyKcalTarget === 'function' ? getDailyKcalTarget() : 2000) + (carb * 4);
+                const dynTarget = typeof getMacroTargetsForDate === 'function'
+                    ? getMacroTargetsForDate(date).kcal
+                    : (typeof getDailyKcalTarget === 'function' ? getDailyKcalTarget() : 2000);
                 return { date, kcal: foodK, target: dynTarget };
             });
 

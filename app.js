@@ -34,6 +34,11 @@ function attachAppInteractions() {
     afterSessionBtn?.addEventListener('click', () => {
         if (typeof calculateAfterSessionRecovery === 'function') calculateAfterSessionRecovery();
     });
+
+    document.getElementById('btn-gi-help')?.addEventListener('click', () => {
+        const el = document.getElementById('gi-help');
+        if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    });
 }
 
 window.addEventListener('DOMContentLoaded', () => {
