@@ -380,13 +380,16 @@ function initDashboard() {
 
     // 1. Agregácia stravy cez n-rozmerný reduce s elimináciou nulových chýb
     const foodTotals = (Storage.get(STORAGE_KEYS.FOOD)[date] || []).reduce((acc, item) => {
-        acc.kcal += Number(item.kcal) || 0;
+        acc.kcal += typeof calculateFoodKcalFromMacros === 'function'
+            ? calculateFoodKcalFromMacros(item)
+            : Number(item.kcal) || 0;
         acc.p += Number(item.p) || 0;
         acc.c += Number(item.c) || 0;
         acc.sugar += Math.min(Number(item.c) || 0, Math.max(0, Number(item.sugar) || 0));
         acc.f += Number(item.f) || 0;
+        acc.fiber += Number(item.fiber) || 0;
         return acc;
-    }, { kcal: 0, p: 0, c: 0, sugar: 0, f: 0 });
+    }, { kcal: 0, p: 0, c: 0, sugar: 0, f: 0, fiber: 0 });
 
     // 2. Dynamické ciele podľa hmotnosti a typu dňa
     const macroTargets = getMacroTargetsForDate(date);
@@ -412,6 +415,7 @@ function initDashboard() {
     setMacroText('c-total', foodTotals.c, dynamicCarbTarget);
     setMacroText('sugar-total', foodTotals.sugar, macroTargets.sugar);
     setMacroText('f-total', foodTotals.f, macroTargets.f);
+    setMacroText('fiber-total', foodTotals.fiber, Math.max(20, Math.round((getAthleteWeight?.() || 70) * 0.35)));
 
     // 5. Grafický progress bar (Kruh)
     const kcalCircle = DOM.get('kcalCircle');

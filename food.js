@@ -44,6 +44,16 @@ function normalizeFoodPreset(preset) {
     };
 }
 
+function calculateFoodKcalFromMacros(item) {
+    const protein = Math.max(0, Number(item.p) || 0);
+    const carbs = Math.max(0, Number(item.c) || 0);
+    const fiber = Math.min(carbs, Math.max(0, Number(item.fiber) || 0));
+    const fat = Math.max(0, Number(item.f) || 0);
+    if (!protein && !carbs && !fiber && !fat) return Math.round(Number(item.kcal) || 0);
+    const netCarbs = Math.max(0, carbs - fiber);
+    return Math.round((protein * 4) + (netCarbs * 4) + (fiber * 2) + (fat * 9));
+}
+
 function getFoodPresets() {
     try {
         const raw = localStorage.getItem(FOOD_PRESET_STORAGE_KEY);
@@ -487,8 +497,13 @@ function addFoodItem() {
     // Extrakcia hodnôt na 100g s ochranou proti záporným číslam
     const getNutrient = (input) => Math.max(0, parseFloat(input?.value) || 0);
 
+    const protein = Math.round(getNutrient(pInput) * multiplier * 10) / 10;
     const carbs = Math.round(getNutrient(cInput) * multiplier * 10) / 10;
     const sugar = Math.min(carbs, Math.round(getNutrient(sugarInput) * multiplier * 10) / 10);
+    const fat = Math.round(getNutrient(fInput) * multiplier * 10) / 10;
+    const fiber = Math.round(getNutrient(fiberInput) * multiplier * 10) / 10;
+    const macroKcal = calculateFoodKcalFromMacros({ p: protein, c: carbs, fiber, f: fat });
+    const labelKcal = Math.round(getNutrient(kcalInput) * multiplier);
 
     const newItem = {
         id: crypto.randomUUID?.() || Date.now().toString(),
@@ -496,14 +511,14 @@ function addFoodItem() {
         meal: mealInput?.value || 'Raňajky',
         timing: timingInput?.value || 'normal',
         weight,
-        kcal: Math.round(getNutrient(kcalInput) * multiplier),
-        p: Math.round(getNutrient(pInput) * multiplier * 10) / 10,
+        kcal: macroKcal || labelKcal,
+        p: protein,
         c: carbs,
         sugar,
-        f: Math.round(getNutrient(fInput) * multiplier * 10) / 10,
+        f: fat,
         gi: Math.max(0, Math.min(100, Number(giInput?.value) || 0)),
         complexity: complexityInput?.value || 'medium',
-        fiber: Math.round(getNutrient(fiberInput) * multiplier * 10) / 10,
+        fiber,
         water: Math.round(getNutrient(waterInput) * multiplier),
         salt: Math.round(getNutrient(saltInput) * multiplier * 10) / 10,
         magnesium: Math.round(getNutrient(magnesiumInput) * multiplier),
@@ -552,7 +567,7 @@ function formatFoodTiming(value) {
 
 function getFoodTotalsForDate(date) {
     return (Storage.get(STORAGE_KEYS.FOOD)[date] || []).reduce((acc, item) => {
-        acc.kcal += Number(item.kcal) || 0;
+        acc.kcal += calculateFoodKcalFromMacros(item);
         acc.p += Number(item.p) || 0;
         acc.c += Number(item.c) || 0;
         acc.sugar += Math.min(Number(item.c) || 0, Math.max(0, Number(item.sugar) || 0));
@@ -618,15 +633,49 @@ function renderCarbloadFoodSuggestions(date = AppState.selectedDate) {
         return;
     }
 
-    const suggestions = getFoodPresets()
-        .filter(item => (Number(item.c) || 0) > 15 && (Number(item.f) || 0) <= 8)
-        .sort((a, b) => (Number(b.c) || 0) - (Number(a.c) || 0))
-        .slice(0, 4);
     const remaining = Math.max(0, plan.carbs - getFoodTotalsForDate(date).c);
+    const scorePreset = (item) => {
+        const carbs = Number(item.c) || 0;
+        const sugarRatio = carbs > 0 ? (Number(item.sugar) || 0) / carbs : 1;
+        const gi = Number(item.gi) || 55;
+        const fiber = Number(item.fiber) || 0;
+        const complexity = item.complexity || 'medium';
+        return (complexity === 'complex' ? 35 : complexity === 'medium' ? 15 : -35)
+            + Math.max(0, 75 - gi)
+            + Math.min(20, fiber * 3)
+            - (sugarRatio * 60)
+            - Math.max(0, (Number(item.f) || 0) - 6) * 3;
+    };
+    let suggestions = getFoodPresets()
+        .filter(item => {
+            const carbs = Number(item.c) || 0;
+            const sugarRatio = carbs > 0 ? (Number(item.sugar) || 0) / carbs : 1;
+            return carbs >= 12
+                && sugarRatio <= 0.35
+                && (Number(item.f) || 0) <= 10
+                && (Number(item.gi) || 55) <= 75
+                && item.complexity !== 'simple';
+        })
+        .sort((a, b) => scorePreset(b) - scorePreset(a))
+        .slice(0, 4);
+
+    if (!suggestions.length) {
+        suggestions = getFoodPresets()
+            .filter(item => (Number(item.c) || 0) >= 12 && (Number(item.sugar) || 0) <= 12 && (Number(item.f) || 0) <= 10)
+            .sort((a, b) => scorePreset(b) - scorePreset(a))
+            .slice(0, 4);
+    }
+
+    if (!suggestions.length) {
+        el.innerHTML = '<span style="font-size:12px;color:#718096;">Doplň v databáze komplexné sacharidy s nízkym cukrom.</span>';
+        return;
+    }
 
     el.innerHTML = suggestions.map(item => {
-        const grams = Math.max(50, Math.round((remaining / Math.max(1, Number(item.c) || 1)) * 100 / Math.max(1, suggestions.length)));
-        return `<button type="button" class="preset-btn" data-carb-suggest="${escapeFoodHtml(item.name)}" style="text-align:left;background:#edf2f7;color:#2d3748;">${escapeFoodHtml(item.name)} · cca ${grams}g · S ${item.c}g/100g</button>`;
+        const carbs = Math.max(1, Number(item.c) || 1);
+        const grams = Math.min(180, Math.max(60, Math.round((remaining / Math.max(1, suggestions.length) / carbs) * 100)));
+        const gi = Number(item.gi) || 55;
+        return `<button type="button" class="preset-btn" data-carb-suggest="${escapeFoodHtml(item.name)}" style="text-align:left;background:#edf2f7;color:#2d3748;">${escapeFoodHtml(item.name)} · cca ${grams}g · komplexné S ${item.c}g · cukry ${item.sugar || 0}g · vláknina ${item.fiber || 0}g · GI ${gi}</button>`;
     }).join('');
 }
 
