@@ -1,231 +1,370 @@
 /* ==========================================
-   1. GLOBÁLNE PREMENNÉ, RESET A PWA PRE iOS
+   1. GLOBÁLNE PREMENNÉ, RESPONSIVE A LUXUSNÉ TÉMY
    ========================================== */
 :root {
-    --bg-main: #f7fafc;
+    /* Svetlá téma (Premium Clean) */
+    --bg-main: #f8fafc;
     --bg-card: #ffffff;
-    --text-main: #2d3748;
-    --text-muted: #718096;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border: rgba(226, 232, 240, 0.8);
+    --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 12px 30px rgba(15, 23, 42, 0.08);
+    --glass-bg: rgba(255, 255, 255, 0.75);
+    --glass-border: rgba(255, 255, 255, 0.6);
     
-    /* Branding */
-    --primary: #48bb78;       /* Výživová zelená */
-    --sports: #2b6cb0;        /* Športová výkonnostná modrá */
-    --danger: #e53e3e;        /* Zmazanie / Stop */
-    --border: #e2e8f0;
+    /* Značka a Akcie */
+    --primary: #10b981;       /* Energetická smaragdová zelená */
+    --primary-glow: rgba(16, 185, 129, 0.25);
+    --sports: #3b82f6;        /* Výkonnostná kybernetická modrá */
+    --sports-glow: rgba(59, 130, 246, 0.25);
+    --danger: #ef4444;        /* Striktná červená */
     
-    /* Tréningové zóny */
-    --z1: #a0aec0;
-    --z2: #48bb78;
-    --z3: #ecc94b;
-    --z4: #ed8936;
-    --z5: #e53e3e;
+    /* Tréningové zóny (Ostré, moderné odtiene) */
+    --z1: #94a3b8;
+    --z2: #10b981;
+    --z3: #f59e0b;
+    --z4: #f97316;
+    --z5: #ef4444;
+
+    /* Časovanie animácií */
+    --ease-elastic: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Automatický Dark Mode podľa nastavenia iPhonu */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-main: #090d16;
+        --bg-card: #131c2e;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+        --border: rgba(255, 255, 255, 0.06);
+        --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 16px 40px rgba(0, 0, 0, 0.5);
+        --glass-bg: rgba(19, 28, 46, 0.75);
+        --glass-border: rgba(255, 255, 255, 0.04);
+    }
+}
+
+/* Reset a PWA pre iOS */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent; /* Stop sivému blikaniu na iOS */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
     background-color: var(--bg-main);
     color: var(--text-main);
-    line-height: 1.4;
+    line-height: 1.5;
     overflow-x: hidden;
-    padding-bottom: calc(65px + env(safe-area-inset-bottom)); /* Priestor pre spodné menu na iPhonoch */
+    letter-spacing: -0.2px;
+    padding-bottom: calc(85px + env(safe-area-inset-bottom)); /* Zväčšený priestor pre komfort na iPhone */
+    user-select: none; /* Bráni nechcenému označovaniu textu pri rýchlom klikaní */
 }
 
 input, select, button {
     font-family: inherit;
-    font-size: 16px; /* Povinné: 16px bráni automatickému zoomovaniu v Safari (iOS) */
+    font-size: 16px; /* Povinné: Stop automatickému zoomu v Safari */
     outline: none;
+    border: none;
 }
+
 /* ==========================================
-   2. PREPÍNANIE POHĽADOV (TABS) A HLAVIČKA
+   2. HLAVIČKA A PREPÍNANIE STRÁNOK
    ========================================== */
 .view {
     display: none;
-    padding: 16px;
-    animation: fadeIn 0.2s ease-in-out;
+    padding: 20px 16px;
+    opacity: 0;
 }
 
 .view.active {
     display: block;
+    animation: slideInUp 0.4s var(--ease-elastic) forwards;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
+@keyframes slideInUp {
+    from { opacity: 0; transform: translateY(16px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
 }
 
 .header h2 {
-    font-size: 24px;
+    font-size: 28px;
     font-weight: 800;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.8px;
+    background: linear-gradient(135deg, var(--text-main), var(--text-muted));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 #date {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-muted);
-    background: var(--border);
-    padding: 4px 10px;
-    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--primary);
+    background: var(--primary-glow);
+    padding: 6px 14px;
+    border-radius: 99px;
+    backdrop-filter: blur(4px);
 }
+
 /* ==========================================
-   3. DASHBOARD A KRUHOVÝ GRAF POKROKU
+   3. KRUHOVÝ GRAF (DASHBOARD)
    ========================================== */
 .circle-progress {
     position: relative;
-    width: 160px;
-    height: 160px;
+    width: 190px;
+    height: 190px;
     border-radius: 50%;
-    /* Základný stav pre JS: conic-gradient(var(--primary) 0deg, #e2e8f0 0deg) */
-    background: conic-gradient(var(--primary) 0deg, #e2e8f0 0deg);
-    margin: 0 auto 24px auto;
+    /* Brutálnejší kužeľový gradient s neonovým prechodom a tvrdým strihom na pozadie */
+    background: conic-gradient(
+        from 0deg,
+        #00ffcc 0deg, 
+        var(--primary, #0075ff) 180deg, 
+        rgba(0, 0, 0, 0.4) 180deg
+    );
+    margin: 20px auto 35px auto;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    
+    /* Agresívny vonkajší neonový záhard a hlboký vnútorný tieň */
+    box-shadow: 
+        0 0 25px rgba(0, 255, 204, 0.3),
+        0 10px 30px rgba(0, 0, 0, 0.5),
+        inset 0 0 30px rgba(0, 0, 0, 0.6);
+        
+    /* Jemné pulzovanie pre efekt živého elementu */
+    animation: pulseGlow 3s infinite ease-in-out;
+    transition: background 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    
+    /* Sklenený odlesk navrchu */
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Hardcore animácia pre pulzovanie žiary */
+@keyframes pulseGlow {
+    0%, 100% {
+        box-shadow: 
+            0 0 25px rgba(0, 255, 204, 0.25),
+            0 10px 30px rgba(0, 0, 0, 0.5),
+            inset 0 0 30px rgba(0, 0, 0, 0.6);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 
+            0 0 40px rgba(0, 255, 204, 0.5),
+            0 15px 40px rgba(0, 0, 0, 0.6),
+            inset 0 0 20px rgba(0, 255, 204, 0.2);
+        transform: scale(1.02); /* Jemné zväčšenie pri maximálnom "výkone" */
+    }
+}
+
+
+/* Pulzujúci efekt pod grafom, ak sme blízko cieľa */
+.circle-progress::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: var(--primary);
+    opacity: 0.15;
+    z-index: -1;
+    animation: pulseGlow 2s infinite ease-in-out;
+}
+
+@keyframes pulseGlow {
+    0%, 100% { transform: scale(1); opacity: 0.1; }
+    50% { transform: scale(1.04); opacity: 0.2; }
 }
 
 .circle-inner {
     position: absolute;
-    width: 136px;
-    height: 136px;
+    width: 152px;
+    height: 152px;
     background-color: var(--bg-card);
     border-radius: 50%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    text-align: center;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.05);
 }
 
 .circle-inner span {
     font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
     color: var(--text-muted);
+    font-weight: 700;
 }
 
 .circle-inner strong {
-    line-height: 1.1;
-    margin: 2px 0;
-    font-weight: 800;
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: -1px;
+    color: var(--text-main);
+    line-height: 1;
+    margin: 4px 0;
 }
+
 /* ==========================================
-   4. KARTY, GRID, FORMULÁRE A ZOZNAMY
+   4. KARTY, GRID A MODERNÉ FORMULÁRE
    ========================================== */
 .card {
     background: var(--bg-card);
-    border-radius: 16px;
-    padding: 16px;
+    border-radius: 20px;
+    padding: 18px;
     margin-bottom: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+    transition: transform 0.2s var(--ease-smooth), box-shadow 0.2s var(--ease-smooth);
+}
+
+.card:active {
+    transform: scale(0.99);
 }
 
 .card h3 {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
-    margin-bottom: 12px;
-    color: var(--text-main);
+    margin-bottom: 14px;
+    letter-spacing: -0.3px;
 }
 
-/* Flexibilný Grid optimalizovaný pre miniatúrne displeje */
-.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 
+/* Makro bunky v prehľade */
+.grid-3 .card {
+    padding: 12px 8px;
+    text-align: center;
+}
+.grid-3 .card h3 { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.grid-3 .card span { font-size: 16px; font-weight: 800; color: var(--text-main); }
+
+/* Vstupy na steroidoch */
 input[type="text"], input[type="number"], input[type="date"], select {
     width: 100%;
-    padding: 12px;
-    margin-bottom: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
     border: 1px solid var(--border);
-    border-radius: 10px;
-    background: #f8fafc;
+    border-radius: 14px;
+    background: var(--bg-main);
     color: var(--text-main);
-    transition: border-color 0.2s;
+    font-weight: 600;
+    transition: all 0.2s var(--ease-smooth);
 }
 
 input:focus, select:focus {
     border-color: var(--primary);
-    background: #fff;
+    background: var(--bg-card);
+    box-shadow: 0 0 0 4px var(--primary-glow);
 }
 
+select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://w3.org' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 16px;
+    padding-right: 40px;
+}
+
+/* Apple-style akčné tlačidlá */
 button {
     width: 100%;
-    padding: 14px;
+    padding: 16px;
     background: var(--primary);
-    color: #fff;
-    border: none;
-    border-radius: 12px;
+    color: #ffffff;
+    border-radius: 16px;
     font-weight: 700;
+    font-size: 16px;
+    letter-spacing: -0.2px;
     cursor: pointer;
-    transition: transform 0.1s, filter 0.2s;
+    box-shadow: 0 4px 14px var(--primary-glow);
+    transition: all 0.2s var(--ease-elastic);
 }
 
-button:active { transform: scale(0.98); }
-.btn-sports { background: var(--sports); }
+button:active {
+    transform: scale(0.96);
+    filter: brightness(0.9);
+}
 
-/* Štýlovanie vygenerovaných položiek stravy a športu */
+.btn-sports {
+    background: var(--sports);
+    box-shadow: 0 4px 14px var(--sports-glow);
+}
+
+/* Vygenerované položky zoznamu */
 .list-item {
-    background: #f8fafc;
-    border-radius: 10px;
-    padding: 10px 12px;
-    margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-main);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-top: 10px;
     border: 1px solid var(--border);
+    animation: popIn 0.3s var(--ease-elastic);
+}
+
+@keyframes popIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
 }
 
 .delete-text {
     color: var(--danger);
-    font-weight: 600;
-    font-size: 12px;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: rgba(239, 68, 68, 0.1);
 }
 
 .info-box {
-    padding: 12px;
-    border-radius: 10px;
-    font-size: 13px;
-    margin: 10px 0;
-    border-left: 4px solid var(--sports);
+    padding: 14px 16px;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 500;
+    margin: 16px 0;
+    background: var(--sports-glow);
+    color: var(--text-main);
+    border-left: 5px solid var(--sports);
 }
 
-/* SVG Grafické kontajnery */
-.chart-container {
-    width: 100%;
-    overflow: hidden;
-    padding-top: 8px;
-}
 /* ==========================================
-   5. SPODNÁ NAVIGÁCIA (TAB BAR) PRE MOBILY
+   5. LUXUSNÁ SPODNÁ NAVIGÁCIA (iOS GLASSMISM)
    ========================================== */
 .nav-bar {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: calc(60px + env(safe-area-inset-bottom));
+    height: calc(64px + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
-    background: rgba(255, 255, 255, 0.94);
-    backdrop-filter: blur(10px); /* Moderný efekt skla na iOS */
-    -webkit-backdrop-filter: blur(10px);
-    border-top: 1px solid var(--border);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(190%); /* Ultra sklenený efekt z iOS 18 */
+    -webkit-backdrop-filter: blur(20px) saturate(190%);
+    border-top: 1px solid var(--glass-border);
     display: flex;
     justify-content: space-around;
     align-items: center;
     z-index: 1000;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.03);
 }
 
 .tab-btn {
@@ -239,21 +378,25 @@ button:active { transform: scale(0.98); }
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
-    font-weight: 500;
-    transition: color 0.15s;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: -0.1px;
+    transition: color 0.2s var(--ease-smooth);
 }
 
-.tab-btn:active { transform: none; } /* Vypnutie zmenšenia na menu tlačidlách */
+.tab-btn:active { 
+    transform: scale(0.92); /* Príjemný stisk ikonky pri dotyku prsta */
+}
 
 .nav-icon {
-    font-size: 20px;
-    margin-bottom: 2px;
+    font-size: 22px;
+    margin-bottom: 3px;
     filter: grayscale(100%);
-    opacity: 0.6;
-    transition: filter 0.15s, opacity 0.15s;
+    opacity: 0.5;
+    transition: all 0.2s var(--ease-elastic);
 }
 
-/* Aktívne stavy navigácie */
+/* Aktívne stavy s jemným podsvietením */
 .tab-btn.active {
     color: var(--primary);
     font-weight: 700;
@@ -262,9 +405,10 @@ button:active { transform: scale(0.98); }
 .tab-btn.active .nav-icon {
     filter: grayscale(0%);
     opacity: 1;
+    transform: translateY(-2px) scale(1.1); /* Ikonka jemne vyskočí dohora */
 }
 
-/* Špecifický vizuálny filter pre športový tab */
+/* Špecifický vizuál pre športovú kartu */
 .tab-btn.active.sports-tab {
     color: var(--sports);
 }
