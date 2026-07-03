@@ -33,12 +33,21 @@ function inferLoadIntensity(breakDown, selected = 'auto') {
     return 'low';
 }
 
-function buildCarbDistribution(totalCarbs, totalSugar, intensityKey) {
+function buildCarbDistribution(totalCarbs, totalSugar, intensityKey, breakDown = {}, duration = 0) {
     const settings = LOAD_INTENSITY_SETTINGS[intensityKey] || LOAD_INTENSITY_SETTINGS.medium;
+    const hardMinutes = (Number(breakDown.z4) || 0) + (Number(breakDown.z5) || 0);
+    const hardShare = duration > 0 ? hardMinutes / duration : 0;
+    let distribution = settings.distribution;
+    if ((intensityKey === 'high' || intensityKey === 'race') && totalCarbs < 220 && duration < 120 && hardShare < 0.3) {
+        distribution = [{ offset: -1, pct: 70 }, { offset: 0, pct: 30 }];
+    }
+    if (intensityKey === 'medium' && (totalCarbs > 260 || duration > 150 || hardShare > 0.2)) {
+        distribution = [{ offset: -2, pct: 30 }, { offset: -1, pct: 55 }, { offset: 0, pct: 15 }];
+    }
     let usedCarbs = 0;
     let usedSugar = 0;
-    return settings.distribution.map((slot, index) => {
-        const isLast = index === settings.distribution.length - 1;
+    return distribution.map((slot, index) => {
+        const isLast = index === distribution.length - 1;
         const carbs = isLast ? Math.max(0, totalCarbs - usedCarbs) : Math.round(totalCarbs * slot.pct / 100);
         const sugar = isLast ? Math.max(0, totalSugar - usedSugar) : Math.round(totalSugar * slot.pct / 100);
         usedCarbs += carbs;
@@ -137,7 +146,7 @@ function predictCarbload() {
     const totalSugarNeeded = Math.round(totalCarbsNeeded * intensity.sugarRatio);
     const totalProteinNeeded = Math.round(weight * intensity.proteinPerKg);
     const totalKcalBurned = Math.round(totalKcalRaw || totalDuration * (bio ? (Number(bio.weight) || 70) * 0.08 : 8));
-    const carbDistribution = buildCarbDistribution(totalCarbsNeeded, totalSugarNeeded, intensityKey);
+    const carbDistribution = buildCarbDistribution(totalCarbsNeeded, totalSugarNeeded, intensityKey, breakDown, totalDuration);
     const box = document.getElementById('carb-prediction-box');
 
     if (totalDuration <= 0) {

@@ -57,6 +57,7 @@
         .zone-grid{display:grid;grid-template-columns:repeat(5,minmax(76px,1fr));gap:6px;text-align:center;overflow-x:auto;padding-bottom:4px}
         .zone-card{background:#f7fafc;padding:6px;border-radius:6px;min-width:76px}
         @media (max-width: 480px){
+            .grid-2,.grid-3{grid-template-columns:1fr}
             .zone-grid{grid-template-columns:repeat(5,86px)}
             .zone-card{display:flex;flex-direction:column;align-items:stretch;justify-content:center;padding:8px;font-size:15px}
             input[type="number"], input[type="time"]{font-size:16px;padding:10px}
@@ -158,6 +159,7 @@
                 <div class="macro-ring" id="food-ring-p"><div class="macro-ring-inner"><strong id="food-ring-p-text">0/0</strong><span>B</span></div></div>
                 <div class="macro-ring" id="food-ring-f"><div class="macro-ring-inner"><strong id="food-ring-f-text">0/0</strong><span>T</span></div></div>
                 <div class="macro-ring" id="food-ring-sugar"><div class="macro-ring-inner"><strong id="food-ring-sugar-text">0/0</strong><span>Cukry</span></div></div>
+                <div class="macro-ring" id="food-ring-fiber"><div class="macro-ring-inner"><strong id="food-ring-fiber-text">0/0</strong><span>Vlákn.</span></div></div>
             </div>
         </div>
 
@@ -169,11 +171,16 @@
         <div class="card">
             <h3>💧 Hydratácia a minerály</h3>
             <div class="hydration-grid">
-                <div><b id="hydration-target">0-0 l</b><span>voda min/max</span></div>
+                <div><b id="hydration-target">0 / 0-0 l</b><span>voda / min-max</span></div>
                 <div><b id="salt-total">0g</b><span>soľ</span></div>
                 <div><b id="magnesium-total">0mg</b><span>magnézium</span></div>
                 <div><b id="potassium-total">0mg</b><span>draslík</span></div>
             </div>
+        </div>
+
+        <div class="card">
+            <h3>🥔 Návrh jedál podľa carbloadu</h3>
+            <div id="carbload-food-suggestions" style="display:grid;gap:6px;"></div>
         </div>
         
         <div class="card">
@@ -512,7 +519,9 @@
             const foodStore = Storage.get(STORAGE_KEYS.FOOD);
 
             const values = dates.map(date => {
-                const foodK = (foodStore[date] || []).reduce((s,i)=>s+(Number(i.kcal)||0),0);
+                const foodK = typeof getFoodTotalsForDate === 'function'
+                    ? getFoodTotalsForDate(date).kcal
+                    : (foodStore[date] || []).reduce((s,i)=>s+(Number(i.kcal)||0),0);
                 const dynTarget = typeof getMacroTargetsForDate === 'function'
                     ? getMacroTargetsForDate(date).kcal
                     : (typeof getDailyKcalTarget === 'function' ? getDailyKcalTarget() : 2000);

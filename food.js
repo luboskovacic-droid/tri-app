@@ -437,12 +437,16 @@ function loadFoodDay() {
         const deleteBtn = document.createElement('span');
         deleteBtn.style.cssText = 'color: #e53e3e; font-size: 12px; cursor: pointer; user-select: none;';
         deleteBtn.textContent = 'Zmazať';
+        const editBtn = document.createElement('span');
+        editBtn.style.cssText = 'color: #2b6cb0; font-size: 12px; cursor: pointer; user-select: none; margin-right:8px;';
+        editBtn.textContent = 'Upraviť';
         
         // Bezpečné mazanie cez UUID
         const targetId = item.id || item.createdAt;
+        editBtn.addEventListener('click', () => editLoggedFoodItem(date, targetId));
         deleteBtn.addEventListener('click', () => deleteFoodItem(date, targetId));
 
-        rightDiv.append(kcalSpan, brRight, deleteBtn);
+        rightDiv.append(kcalSpan, brRight, editBtn, deleteBtn);
 
         itemWrapper.append(leftDiv, rightDiv);
         mealSection.append(itemWrapper);
@@ -553,13 +557,14 @@ function getFoodTotalsForDate(date) {
         acc.c += Number(item.c) || 0;
         acc.sugar += Math.min(Number(item.c) || 0, Math.max(0, Number(item.sugar) || 0));
         acc.f += Number(item.f) || 0;
+        acc.fiber += Number(item.fiber) || 0;
         acc.water += Number(item.water) || 0;
         acc.salt += Number(item.salt) || 0;
         acc.magnesium += Number(item.magnesium) || 0;
         acc.potassium += Number(item.potassium) || 0;
         acc.amino += Number(item.amino) || 0;
         return acc;
-    }, { kcal: 0, p: 0, c: 0, sugar: 0, f: 0, water: 0, salt: 0, magnesium: 0, potassium: 0, amino: 0 });
+    }, { kcal: 0, p: 0, c: 0, sugar: 0, f: 0, fiber: 0, water: 0, salt: 0, magnesium: 0, potassium: 0, amino: 0 });
 }
 
 function setFoodRing(id, textId, current, target) {
@@ -584,8 +589,10 @@ function renderFoodDayMetrics(date = AppState.selectedDate) {
     setFoodRing('food-ring-p', 'food-ring-p-text', totals.p, targets.p);
     setFoodRing('food-ring-f', 'food-ring-f-text', totals.f, targets.f);
     setFoodRing('food-ring-sugar', 'food-ring-sugar-text', totals.sugar, targets.sugar);
+    setFoodRing('food-ring-fiber', 'food-ring-fiber-text', totals.fiber || 0, Math.max(20, Math.round(getAthleteWeight?.() * 0.35 || 25)));
     renderHydrationMetrics(date, totals);
     renderFoodTimeline(date);
+    renderCarbloadFoodSuggestions(date);
 }
 
 function renderHydrationMetrics(date, totals = getFoodTotalsForDate(date)) {
@@ -596,10 +603,63 @@ function renderHydrationMetrics(date, totals = getFoodTotalsForDate(date)) {
     const saltEl = DOM.get('salt-total');
     const magnesiumEl = DOM.get('magnesium-total');
     const potassiumEl = DOM.get('potassium-total');
-    if (hydrationEl) hydrationEl.textContent = `${(target.min / 1000).toFixed(1)}-${(target.max / 1000).toFixed(1)} l`;
+    if (hydrationEl) hydrationEl.textContent = `${(totals.water / 1000).toFixed(1)} / ${(target.min / 1000).toFixed(1)}-${(target.max / 1000).toFixed(1)} l`;
     if (saltEl) saltEl.textContent = `${totals.salt.toFixed(1)}g`;
     if (magnesiumEl) magnesiumEl.textContent = `${Math.round(totals.magnesium)}mg`;
     if (potassiumEl) potassiumEl.textContent = `${Math.round(totals.potassium)}mg`;
+}
+
+function renderCarbloadFoodSuggestions(date = AppState.selectedDate) {
+    const el = DOM.get('carbload-food-suggestions');
+    if (!el) return;
+    const plan = typeof buildCarbloadPlanForDate === 'function' ? buildCarbloadPlanForDate(date) : null;
+    if (!plan || !plan.carbs) {
+        el.innerHTML = '<span style="font-size:12px;color:#718096;">Bez carbload cieľa.</span>';
+        return;
+    }
+
+    const suggestions = getFoodPresets()
+        .filter(item => (Number(item.c) || 0) > 15 && (Number(item.f) || 0) <= 8)
+        .sort((a, b) => (Number(b.c) || 0) - (Number(a.c) || 0))
+        .slice(0, 4);
+    const remaining = Math.max(0, plan.carbs - getFoodTotalsForDate(date).c);
+
+    el.innerHTML = suggestions.map(item => {
+        const grams = Math.max(50, Math.round((remaining / Math.max(1, Number(item.c) || 1)) * 100 / Math.max(1, suggestions.length)));
+        return `<button type="button" class="preset-btn" data-carb-suggest="${escapeFoodHtml(item.name)}" style="text-align:left;background:#edf2f7;color:#2d3748;">${escapeFoodHtml(item.name)} · cca ${grams}g · S ${item.c}g/100g</button>`;
+    }).join('');
+}
+
+function editLoggedFoodItem(date, itemId) {
+    const allData = Storage.get(STORAGE_KEYS.FOOD);
+    const item = (allData[date] || []).find(food => (food.id || food.createdAt) === itemId);
+    if (!item) return;
+
+    const setValue = (id, value) => {
+        const el = DOM.get(id);
+        if (el) el.value = value ?? '';
+    };
+
+    setValue('f-search', item.name);
+    setValue('f-name', item.name);
+    setValue('f-meal', item.meal || 'Raňajky');
+    setValue('f-timing', item.timing || 'normal');
+    setValue('f-weight', item.weight || 100);
+    const multiplier = (Number(item.weight) || 100) / 100;
+    setValue('f-kcal', Math.round((Number(item.kcal) || 0) / multiplier));
+    setValue('f-p', Math.round(((Number(item.p) || 0) / multiplier) * 10) / 10);
+    setValue('f-c', Math.round(((Number(item.c) || 0) / multiplier) * 10) / 10);
+    setValue('f-sugar', Math.round(((Number(item.sugar) || 0) / multiplier) * 10) / 10);
+    setValue('f-f', Math.round(((Number(item.f) || 0) / multiplier) * 10) / 10);
+    setValue('f-gi', item.gi || '');
+    setValue('f-complexity', item.complexity || 'medium');
+    setValue('f-fiber', Math.round(((Number(item.fiber) || 0) / multiplier) * 10) / 10);
+    setValue('f-water', Math.round((Number(item.water) || 0) / multiplier));
+    setValue('f-salt', Math.round(((Number(item.salt) || 0) / multiplier) * 10) / 10);
+    setValue('f-magnesium', Math.round((Number(item.magnesium) || 0) / multiplier));
+    setValue('f-potassium', Math.round((Number(item.potassium) || 0) / multiplier));
+    setValue('f-amino', Math.round(((Number(item.amino) || 0) / multiplier) * 10) / 10);
+    deleteFoodItem(date, itemId);
 }
 
 function renderFoodTimeline(date = AppState.selectedDate) {
@@ -764,6 +824,13 @@ window.addEventListener('DOMContentLoaded', () => {
         row.dataset.deleted = 'true';
         row.style.opacity = '0.45';
         row.style.textDecoration = 'line-through';
+    });
+
+    document.getElementById('carbload-food-suggestions')?.addEventListener('click', (event) => {
+        const btn = event.target.closest('button[data-carb-suggest]');
+        if (!btn) return;
+        const preset = getFoodPresets().find(item => item.name === btn.dataset.carbSuggest);
+        if (preset) applyFoodPreset(preset);
     });
 });
 
