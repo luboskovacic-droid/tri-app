@@ -143,9 +143,9 @@ function getMacroTargetsForDate(date) {
         carbs = Math.round(weight * 3.5) + carbloadBonusGrams;
         fat = Math.round(weight * 0.55);
     } else if (context.type === 'rest') {
-        protein = Math.round(weight * 1.8);
-        carbs = Math.round(weight * 2.2);
-        fat = Math.round(weight * 0.9);
+        protein = Math.round(weight * 1.9);
+        carbs = Math.round(weight * 1.8) + carbloadBonusGrams;
+        fat = Math.round(weight * 1.0);
     }
 
     const macroKcal = (protein * 4) + (carbs * 4) + (fat * 9);
@@ -243,21 +243,21 @@ function buildMealTimesForPlan(plan) {
     if (plan.kind === 'prev') {
         const total = plan.carbs;
         return [
-            { time: '10:00', grams: Math.round(total * 0.35) },
-            { time: '15:00', grams: Math.round(total * 0.35) },
-            { time: '20:00', grams: Math.max(1, total - Math.round(total * 0.7)) }
+            { time: '10:00', grams: Math.round(total * 0.35), label: 'komplexné jedlo' },
+            { time: '15:00', grams: Math.round(total * 0.35), label: 'komplexné jedlo' },
+            { time: '20:00', grams: Math.max(1, total - Math.round(total * 0.7)), label: 'ľahšia večera' }
         ];
     }
 
     const total = plan.carbs;
     const startMinutes = parseTimeToMinutes(plan.startTime);
     return [
-        { time: formatMinutesToTime(startMinutes - 180), grams: Math.max(1, Math.round(total * 0.2)) },
-        { time: formatMinutesToTime(startMinutes - 120), grams: Math.max(1, Math.round(total * 0.35)) },
-        { time: formatMinutesToTime(startMinutes - 60), grams: Math.max(1, Math.round(total * 0.25)) },
-        { time: formatMinutesToTime(startMinutes - 30), grams: Math.max(1, total - Math.round(total * 0.8)) }
+        { time: formatMinutesToTime(startMinutes - 180), grams: Math.round(total * 0.60), label: 'normálne jedlo' },
+        { time: formatMinutesToTime(startMinutes - 60), grams: Math.round(total * 0.25), label: 'džús' },
+        { time: formatMinutesToTime(startMinutes - 15), grams: Math.max(1, total - Math.round(total * 0.85)), label: 'gél' }
     ].filter(slot => slot.grams > 0);
 }
+
 
 function renderCarbloadPlanCard(date) {
     const summaryEl = DOM.get('carbload-plan-summary');
@@ -280,7 +280,7 @@ function renderCarbloadPlanCard(date) {
 
     if (timeEl) {
         const sugarRatio = carbs > 0 ? (Number(plan.sugar) || 0) / carbs : 0;
-        timeEl.innerHTML = mealTimes.map(slot => `<div><strong>${slot.time}</strong> — ${slot.grams}g sacharidov, cukry max ${Math.round(slot.grams * sugarRatio)}g</div>`).join('');
+        timeEl.innerHTML = mealTimes.map(slot => `<div><strong>${slot.time}</strong> — ${slot.label ? `${slot.label}: ` : ''}${slot.grams}g sacharidov, cukry max ${Math.round(slot.grams * sugarRatio)}g</div>`).join('');
     }
 }
 

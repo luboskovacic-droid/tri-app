@@ -633,6 +633,14 @@ function renderCarbloadFoodSuggestions(date = AppState.selectedDate) {
         return;
     }
 
+    if (plan.kind === 'event' && typeof buildMealTimesForPlan === 'function') {
+        const sugarRatio = plan.carbs > 0 ? (Number(plan.sugar) || 0) / plan.carbs : 0;
+        el.innerHTML = buildMealTimesForPlan(plan).map(slot => (
+            `<button type="button" class="preset-btn" style="text-align:left;background:#edf2f7;color:#2d3748;">${escapeFoodHtml(slot.time)} · ${escapeFoodHtml(slot.label || 'jedlo')} · ${slot.grams}g S · cukry max ${Math.round(slot.grams * sugarRatio)}g</button>`
+        )).join('');
+        return;
+    }
+
     const remaining = Math.max(0, plan.carbs - getFoodTotalsForDate(date).c);
     const scorePreset = (item) => {
         const carbs = Number(item.c) || 0;

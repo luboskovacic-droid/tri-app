@@ -3,7 +3,7 @@ const LOAD_INTENSITY_SETTINGS = {
     low: { label: 'Nízka záťaž', sugarRatio: 0.18, proteinPerKg: 0.25, distribution: [{ offset: -1, pct: 60 }, { offset: 0, pct: 40 }] },
     medium: { label: 'Stredná vytrvalosť', sugarRatio: 0.28, proteinPerKg: 0.28, distribution: [{ offset: -1, pct: 45 }, { offset: 0, pct: 55 }] },
     high: { label: 'Vysoká intenzita', sugarRatio: 0.38, proteinPerKg: 0.30, distribution: [{ offset: -2, pct: 35 }, { offset: -1, pct: 55 }, { offset: 0, pct: 10 }] },
-    race: { label: 'Súťaž / triathlon', sugarRatio: 0.43, proteinPerKg: 0.30, distribution: [{ offset: -2, pct: 35 }, { offset: -1, pct: 55 }, { offset: 0, pct: 10 }] },
+    race: { label: 'Súťaž / triathlon', sugarRatio: 0.35, proteinPerKg: 0.30, distribution: [{ offset: -1, pct: 80 }, { offset: 0, pct: 20 }] },
     strength: { label: 'Sila / fitko', sugarRatio: 0.15, proteinPerKg: 0.35, distribution: [{ offset: 0, pct: 100 }] }
 };
 
@@ -38,7 +38,10 @@ function buildCarbDistribution(totalCarbs, totalSugar, intensityKey, breakDown =
     const hardMinutes = (Number(breakDown.z4) || 0) + (Number(breakDown.z5) || 0);
     const hardShare = duration > 0 ? hardMinutes / duration : 0;
     let distribution = settings.distribution;
-    if ((intensityKey === 'high' || intensityKey === 'race') && totalCarbs < 220 && duration < 120 && hardShare < 0.3) {
+    if (intensityKey === 'race') {
+        distribution = [{ offset: -1, pct: 80 }, { offset: 0, pct: 20 }];
+    }
+    if (intensityKey === 'high' && totalCarbs < 220 && duration < 120 && hardShare < 0.3) {
         distribution = [{ offset: -1, pct: 70 }, { offset: 0, pct: 30 }];
     }
     if (intensityKey === 'medium' && (totalCarbs > 260 || duration > 150 || hardShare > 0.2)) {
@@ -106,23 +109,17 @@ function predictCarbload() {
     let totalDuration = 0;
     let totalCarbsRaw = 0;
     let totalKcalRaw = 0;
-
-    // Základné MET odhady pre zóny (približné)
     const ZONE_MET = { z1: 3, z2: 5, z3: 8, z4: 10, z5: 12 };
     const ZONE_CARB_FRAC = { z1: 0.30, z2: 0.40, z3: 0.60, z4: 0.75, z5: 0.90 };
-
-    // Načítanie bio profilu
     const bio = getUserBio();
-    const weight = (bio && Number(bio.weight)) || 70; // kg fallback
+    const weight = (bio && Number(bio.weight)) || 72;
 
-    // Kalkulácia: kcal/min = MET * 3.5 * weight(kg) / 200
     const kcalPerMinForZone = {};
     zones.forEach(z => {
         const met = ZONE_MET[z] || 5;
         kcalPerMinForZone[z] = (met * 3.5 * weight) / 200;
     });
 
-    // Načítanie hodnôt z UI pomocou cyklu
     zones.forEach(zone => {
         const input = document.getElementById(`s-${zone}`);
         const minutes = Math.max(0, parseFloat(input?.value) || 0);
@@ -142,10 +139,17 @@ function predictCarbload() {
     const intensity = LOAD_INTENSITY_SETTINGS[intensityKey] || LOAD_INTENSITY_SETTINGS.medium;
     const template = getSelectedTemplate();
     const strengthModifier = template === 'fitko' || intensityKey === 'strength' ? 0.55 : 1;
-    const totalCarbsNeeded = Math.round(totalCarbsRaw * strengthModifier);
+
+    let totalCarbsNeeded = Math.round(totalCarbsRaw * strengthModifier);
+    if (intensityKey === 'race' || template === 'triathlon' || selectedIntensity === 'race') {
+        const TARGET_CARBS_PER_KG = totalDuration >= 120 ? 8.0 : 6.0;
+        totalCarbsNeeded = Math.round(weight * TARGET_CARBS_PER_KG);
+    }
+
     const totalSugarNeeded = Math.round(totalCarbsNeeded * intensity.sugarRatio);
     const totalProteinNeeded = Math.round(weight * intensity.proteinPerKg);
-    const totalKcalBurned = Math.round(totalKcalRaw || totalDuration * (bio ? (Number(bio.weight) || 70) * 0.08 : 8));
+    const totalKcalBurned = Math.round(totalKcalRaw || totalDuration * (bio ? (Number(bio.weight) || 72) * 0.08 : 8));
+    
     const carbDistribution = buildCarbDistribution(totalCarbsNeeded, totalSugarNeeded, intensityKey, breakDown, totalDuration);
     const box = document.getElementById('carb-prediction-box');
 
@@ -160,6 +164,7 @@ function predictCarbload() {
     const sugarEl = document.getElementById('predicted-sugar');
     const proteinEl = document.getElementById('predicted-protein');
     const intensityEl = document.getElementById('predicted-intensity');
+    
     if (carbsEl) carbsEl.textContent = totalCarbsNeeded;
     if (durationEl) durationEl.textContent = totalDuration;
     if (kcalEl) kcalEl.textContent = totalKcalBurned;
@@ -170,6 +175,8 @@ function predictCarbload() {
 
     return { totalCarbsNeeded, totalSugarNeeded, totalProteinNeeded, totalDuration, totalKcalBurned, breakDown, intensityKey, intensityLabel: intensity.label, carbDistribution };
 }
+
+
 
 // 3. Načítanie športového dňa z kalendára do listu
 function loadSportDay() {
