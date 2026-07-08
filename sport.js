@@ -14,35 +14,112 @@ function getBioProfile() {
     }
 }
 
-function getDailyKcalTarget() {
+const DEFAULT_BIO_PROFILE = Object.freeze({
+    weight: 70,
+    height: 175,
+    age: 30,
+    sex: 'male',
+    resthr: 60,
+    maxhr: 0
+});
+
+const ACTIVITY_FACTORS = Object.freeze({
+    rest: 1.25,
+    endurance: 1.35,
+    strength: 1.38,
+    high: 1.45,
+    race: 1.50
+});
+
+function getNormalizedBioProfile() {
     const bio = getBioProfile();
-    if (!bio) return 2000;
+    const merged = { ...DEFAULT_BIO_PROFILE, ...(bio || {}) };
+    const age = Math.max(10, Math.min(95, Number(merged.age) || DEFAULT_BIO_PROFILE.age));
+    const estimatedMaxHr = Math.round(208 - (0.7 * age));
+    const maxhr = Number(merged.maxhr) > 0 ? Number(merged.maxhr) : estimatedMaxHr;
+    const resthr = Math.max(30, Math.min(maxhr - 5, Number(merged.resthr) || DEFAULT_BIO_PROFILE.resthr));
 
-    const weight = Number(bio.weight) || 70;
-    const height = Number(bio.height) || 175;
-    const age = Number(bio.age) || 30;
-    const sex = bio.sex === 'female' ? 'female' : 'male';
-    const restHr = Number(bio.resthr) || 60;
-    const maxHr = Number(bio.maxhr) || 0;
+    return {
+        weight: Math.max(35, Math.min(180, Number(merged.weight) || DEFAULT_BIO_PROFILE.weight)),
+        height: Math.max(120, Math.min(230, Number(merged.height) || DEFAULT_BIO_PROFILE.height)),
+        age,
+        sex: merged.sex === 'female' ? 'female' : 'male',
+        resthr,
+        maxhr,
+        estimatedMaxHr
+    };
+}
 
-    const bmr = sex === 'female'
-        ? (10 * weight) + (6.25 * height) - (5 * age) - 161
-        : (10 * weight) + (6.25 * height) - (5 * age) + 5;
+function calculateBMRFromBio(bio = getNormalizedBioProfile()) {
+    const base = (10 * bio.weight) + (6.25 * bio.height) - (5 * bio.age);
+    return Math.round(bio.sex === 'female' ? base - 161 : base + 5);
+}
 
-    let activityFactor = 1.2;
-    if (maxHr > 0 && restHr > 0) {
-        const hrReserve = maxHr - restHr;
-        activityFactor += Math.min(0.25, hrReserve / 400);
-    }
-    if (restHr < 55) activityFactor += 0.05;
-    if (restHr > 75) activityFactor += 0.05;
+function getHeartRateZones(bio = getNormalizedBioProfile()) {
+    const reserve = Math.max(1, bio.maxhr - bio.resthr);
+    const defs = [
+        { key: 'z1', label: 'Z1 regenerácia', from: 0.50, to: 0.60 },
+        { key: 'z2', label: 'Z2 aeróbna', from: 0.60, to: 0.70 },
+        { key: 'z3', label: 'Z3 tempo', from: 0.70, to: 0.80 },
+        { key: 'z4', label: 'Z4 prah', from: 0.80, to: 0.90 },
+        { key: 'z5', label: 'Z5 VO2max', from: 0.90, to: 1.00 }
+    ];
+    return defs.map(zone => ({
+        ...zone,
+        min: Math.round(bio.resthr + (reserve * zone.from)),
+        max: Math.round(bio.resthr + (reserve * zone.to))
+    }));
+}
 
-    return Math.round(bmr * activityFactor);
+function getCurrentAppDate() {
+    if (typeof AppState !== 'undefined' && AppState?.selectedDate) return AppState.selectedDate;
+    if (typeof getTodayString === 'function') return getTodayString();
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getTrainingEnergyForDate(date) {
+    const sportsStore = typeof Storage !== 'undefined' ? Storage.get(STORAGE_KEYS.SPORTS) : {};
+    const items = sportsStore[date] || [];
+    if (!Array.isArray(items)) return { kcal: 0, duration: 0, carbs: 0 };
+    return items.reduce((acc, item) => {
+        acc.kcal += Math.max(0, Number(item.kcalBurned) || 0);
+        acc.duration += Math.max(0, Number(item.duration) || 0);
+        acc.carbs += Math.max(0, Number(item.carbload) || 0);
+        return acc;
+    }, { kcal: 0, duration: 0, carbs: 0 });
+}
+
+function getMetabolismSummaryForDate(date = getCurrentAppDate()) {
+    const context = getTrainingContextForDate(date);
+    const bio = getNormalizedBioProfile();
+    const bmr = calculateBMRFromBio(bio);
+    const activityFactor = ACTIVITY_FACTORS[context.type] || ACTIVITY_FACTORS.endurance;
+    const baseTdee = Math.round(bmr * activityFactor);
+    const training = getTrainingEnergyForDate(date);
+    const plannedExerciseKcal = training.kcal;
+    const recoverableExerciseKcal = Math.round(plannedExerciseKcal * 0.65);
+    const target = Math.round(baseTdee + recoverableExerciseKcal);
+
+    return {
+        bio,
+        bmr,
+        activityFactor,
+        baseTdee,
+        plannedExerciseKcal,
+        recoverableExerciseKcal,
+        target,
+        zones: getHeartRateZones(bio),
+        context
+    };
+}
+
+function getDailyKcalTarget(date = getCurrentAppDate()) {
+    return getMetabolismSummaryForDate(date).target;
 }
 
 function getAthleteWeight() {
-    const bio = getBioProfile();
-    return Math.max(45, Number(bio?.weight) || 70);
+    return getNormalizedBioProfile().weight;
 }
 
 function getDayDifference(fromDate, targetDate) {
@@ -130,6 +207,7 @@ function getMacroTargetsForDate(date) {
     const context = getTrainingContextForDate(date);
     const carbloadBonusGrams = getCarbloadBonusForDate(date);
     const sugarTargetGrams = getSugarTargetForDate(date);
+    const metabolism = getMetabolismSummaryForDate(date);
     let protein = Math.round(weight * 1.8);
     let carbs = Math.round(weight * 3.0) + carbloadBonusGrams;
     let fat = Math.round(weight * 0.8);
@@ -149,7 +227,7 @@ function getMacroTargetsForDate(date) {
     }
 
     const macroKcal = (protein * 4) + (carbs * 4) + (fat * 9);
-    const baseKcal = getDailyKcalTarget() + (carbloadBonusGrams * KCAL_PER_GRAM_CARB);
+    const baseKcal = getDailyKcalTarget(date) + (carbloadBonusGrams * KCAL_PER_GRAM_CARB);
 
     return {
         kcal: Math.round(Math.max(baseKcal, macroKcal)),
@@ -157,6 +235,8 @@ function getMacroTargetsForDate(date) {
         c: carbs,
         f: fat,
         sugar: sugarTargetGrams,
+        fiber: Math.max(20, Math.round(weight * 0.35)),
+        metabolism,
         context
     };
 }
@@ -431,6 +511,8 @@ function initDashboard() {
     
     renderCarbloadPlanCard(date);
     if (typeof renderFoodDayMetrics === 'function') renderFoodDayMetrics(date);
+    if (typeof renderMetabolismPanel === 'function') renderMetabolismPanel();
+    if (typeof renderHeartZoneGuide === 'function') renderHeartZoneGuide();
 
     if (typeof updateSportsDashboardSummary === "function") {
         updateSportsDashboardSummary();

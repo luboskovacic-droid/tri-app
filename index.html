@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kcal & Sport PWA</title>
     <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%233182ce'/%3E%3Ctext x='50%25' y='55%25' font-size='40' text-anchor='middle' fill='%23fff' font-family='system-ui, sans-serif'%3E⚡%3C/text%3E%3C/svg%3E">
     <style>
         :root{--primary:#2b6cb0;--sports:#3182ce;--muted:#718096;--bg:#fff}
@@ -113,6 +114,12 @@
             <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
                 <button id="btn-save-bio">Uložiť profil</button>
                 <small id="bio-saved" style="color:var(--muted);display:none;">Profil uložený</small>
+            </div>
+            <div id="metabolism-summary" class="metric-grid-4" style="margin-top:10px;">
+                <div><b id="bio-bmr">0</b><br><span>BMR</span></div>
+                <div><b id="bio-tdee">0</b><br><span>TDEE</span></div>
+                <div><b id="bio-training-kcal">0</b><br><span>Tréning</span></div>
+                <div><b id="bio-maxhr-out">0</b><br><span>Max tep</span></div>
             </div>
         </div>
         
@@ -309,6 +316,7 @@
             <div style="margin-top: 12px; margin-bottom: 6px;">
                 <label style="font-size: 13px; font-weight: bold; color: #4a5568;">Zadaj čas v zónach (v minútach):</label>
             </div>
+            <div id="hr-zone-guide" style="display:grid;grid-template-columns:repeat(5,minmax(76px,1fr));gap:6px;margin-bottom:8px;font-size:11px;color:#4a5568;text-align:center;"></div>
             
             <div class="zone-grid">
                 <div class="zone-card" style="background:#f7fafc;">
@@ -501,7 +509,9 @@
                 try {
                     renderKcalSparkline(7);
                     renderTodaySummary();
-                    if (typeof initDashboard === 'function') initDashboard();
+                if (typeof initDashboard === 'function') initDashboard();
+                renderMetabolismPanel();
+                renderHeartZoneGuide();
                     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
                         window.dispatchEvent(new Event('storage'));
                     }
@@ -512,7 +522,32 @@
         document.addEventListener('DOMContentLoaded', () => {
             const saveBtn = document.getElementById('btn-save-bio');
             saveBtn?.addEventListener('click', saveBio);
+            renderMetabolismPanel();
+            renderHeartZoneGuide();
         });
+
+        function renderMetabolismPanel() {
+            if (typeof getMetabolismSummaryForDate !== 'function') return;
+            const summary = getMetabolismSummaryForDate(typeof AppState !== 'undefined' ? AppState.selectedDate : undefined);
+            const set = (id, value) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = value;
+            };
+            set('bio-bmr', `${summary.bmr}`);
+            set('bio-tdee', `${summary.baseTdee}`);
+            set('bio-training-kcal', `${summary.plannedExerciseKcal}`);
+            set('bio-maxhr-out', `${summary.bio.maxhr}`);
+        }
+
+        function renderHeartZoneGuide() {
+            if (typeof getHeartRateZones !== 'function') return;
+            const guide = document.getElementById('hr-zone-guide');
+            if (!guide) return;
+            const colors = ['#94a3b8', '#10b981', '#f59e0b', '#f97316', '#ef4444'];
+            guide.innerHTML = getHeartRateZones().map((zone, index) => (
+                `<div style="border:1px solid #e2e8f0;border-left:3px solid ${colors[index]};border-radius:6px;padding:6px;background:#fff;"><strong>${zone.key.toUpperCase()}</strong><br>${zone.min}-${zone.max} bpm</div>`
+            )).join('');
+        }
 
         function getDatesBack(n) {
             const out = [];
@@ -595,7 +630,8 @@
 
             const dash = document.getElementById('dash-sports-summary');
             if (dash) {
-                dash.textContent = `${sportStore.length} aktivity, Carbload +${carbs}g · Prijaté ${kcal} kcal`;
+                const trainingKcal = sportStore.reduce((s,i)=>s+(Number(i.kcalBurned)||0),0);
+                dash.textContent = `${sportStore.length} aktivity · tréning ${trainingKcal} kcal · Carbload +${carbs}g · Prijaté ${kcal} kcal`;
             }
         }
 

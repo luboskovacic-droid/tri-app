@@ -7,11 +7,33 @@ const LOAD_INTENSITY_SETTINGS = {
     strength: { label: 'Sila / fitko', sugarRatio: 0.15, proteinPerKg: 0.35, distribution: [{ offset: 0, pct: 100 }] }
 };
 
+const ZONE_PHYSIOLOGY = Object.freeze({
+    z1: { met: 3.2, carbFraction: 0.22, fuelFactor: 0.20 },
+    z2: { met: 5.8, carbFraction: 0.38, fuelFactor: 0.30 },
+    z3: { met: 8.0, carbFraction: 0.58, fuelFactor: 0.45 },
+    z4: { met: 10.2, carbFraction: 0.76, fuelFactor: 0.62 },
+    z5: { met: 12.5, carbFraction: 0.90, fuelFactor: 0.75 }
+});
+
+const TEMPLATE_MET_MULTIPLIER = Object.freeze({
+    volno: 0,
+    fitko: 0.72,
+    indoor_bike: 0.95,
+    plavanie: 1.05,
+    bicykel: 1.00,
+    beh: 1.08,
+    duathlon: 1.06,
+    aquathlon: 1.04,
+    triathlon: 1.05,
+    brick: 1.04,
+    vlastne: 1.00
+});
+
 function getSelectedTemplate() {
     return document.getElementById('s-template')?.value || 'vlastne';
 }
 
-function inferLoadIntensity(breakDown, selected = 'auto') {
+function inferLoadIntensity(breakDown, selected = 'auto', templateOverride = null) {
     if (selected && selected !== 'auto') return selected;
 
     const z1 = Number(breakDown.z1) || 0;
@@ -24,13 +46,65 @@ function inferLoadIntensity(breakDown, selected = 'auto') {
 
     const hardShare = (z4 + z5) / total;
     const enduranceShare = (z2 + z3) / total;
-    const template = getSelectedTemplate();
+    const template = templateOverride || getSelectedTemplate();
 
     if (template === 'fitko') return 'strength';
     if (template === 'triathlon' || template === 'duathlon' || template === 'aquathlon') return hardShare >= 0.18 ? 'race' : 'high';
     if (hardShare >= 0.25 || z5 >= 10) return 'high';
     if (enduranceShare >= 0.5 || total >= 75) return 'medium';
     return 'low';
+}
+
+function calculateTrainingPredictionFromBreakdown(breakDown, selectedIntensity = 'auto', template = getSelectedTemplate()) {
+    const bio = typeof getNormalizedBioProfile === 'function'
+        ? getNormalizedBioProfile()
+        : { weight: 72, resthr: 60, maxhr: 188 };
+    const weight = Math.max(35, Number(bio.weight) || 72);
+    const templateMultiplier = TEMPLATE_MET_MULTIPLIER[template] ?? 1;
+    const zones = ['z1', 'z2', 'z3', 'z4', 'z5'];
+    let totalDuration = 0;
+    let totalKcalRaw = 0;
+    let carbFuelRaw = 0;
+
+    zones.forEach(zone => {
+        const minutes = Math.max(0, Number(breakDown[zone]) || 0);
+        totalDuration += minutes;
+        const physiology = ZONE_PHYSIOLOGY[zone] || ZONE_PHYSIOLOGY.z2;
+        const kcalPerMin = ((physiology.met * templateMultiplier) * 3.5 * weight) / 200;
+        const kcal = minutes * kcalPerMin;
+        totalKcalRaw += kcal;
+        carbFuelRaw += (kcal * physiology.carbFraction * physiology.fuelFactor) / 4;
+    });
+
+    const intensityKey = inferLoadIntensity(breakDown, selectedIntensity, template);
+    const intensity = LOAD_INTENSITY_SETTINGS[intensityKey] || LOAD_INTENSITY_SETTINGS.medium;
+    let totalCarbsNeeded = Math.round(carbFuelRaw);
+
+    if (intensityKey === 'strength' || template === 'fitko') {
+        totalCarbsNeeded = Math.round(totalCarbsNeeded * 0.65);
+    }
+
+    if (intensityKey === 'race' || template === 'triathlon' || selectedIntensity === 'race') {
+        const raceCarbsPerKg = totalDuration >= 180 ? 8 : totalDuration >= 90 ? 6 : 4.5;
+        totalCarbsNeeded = Math.max(totalCarbsNeeded, Math.round(weight * raceCarbsPerKg));
+    }
+
+    const totalSugarNeeded = Math.round(totalCarbsNeeded * intensity.sugarRatio);
+    const totalProteinNeeded = Math.round(weight * intensity.proteinPerKg);
+    const totalKcalBurned = Math.round(totalKcalRaw);
+    const carbDistribution = buildCarbDistribution(totalCarbsNeeded, totalSugarNeeded, intensityKey, breakDown, totalDuration);
+
+    return {
+        totalCarbsNeeded,
+        totalSugarNeeded,
+        totalProteinNeeded,
+        totalDuration,
+        totalKcalBurned,
+        breakDown: { ...breakDown },
+        intensityKey,
+        intensityLabel: intensity.label,
+        carbDistribution
+    };
 }
 
 function buildCarbDistribution(totalCarbs, totalSugar, intensityKey, breakDown = {}, duration = 0) {
@@ -106,56 +180,21 @@ function getUserBio() {
 function predictCarbload() {
     const zones = ['z1', 'z2', 'z3', 'z4', 'z5'];
     const breakDown = {};
-    let totalDuration = 0;
-    let totalCarbsRaw = 0;
-    let totalKcalRaw = 0;
-    const ZONE_MET = { z1: 3, z2: 5, z3: 8, z4: 10, z5: 12 };
-    const ZONE_CARB_FRAC = { z1: 0.30, z2: 0.40, z3: 0.60, z4: 0.75, z5: 0.90 };
-    const bio = getUserBio();
-    const weight = (bio && Number(bio.weight)) || 72;
-
-    const kcalPerMinForZone = {};
-    zones.forEach(z => {
-        const met = ZONE_MET[z] || 5;
-        kcalPerMinForZone[z] = (met * 3.5 * weight) / 200;
-    });
-
     zones.forEach(zone => {
         const input = document.getElementById(`s-${zone}`);
         const minutes = Math.max(0, parseFloat(input?.value) || 0);
         breakDown[zone] = minutes;
-        totalDuration += minutes;
-
-        const kcalMin = kcalPerMinForZone[zone] || 0;
-        const carbFrac = ZONE_CARB_FRAC[zone] || 0.5;
-        // grams per minute = (kcal per min * carb fraction) / 4 (kcal per gram carb)
-        const carbsPerMin = (kcalMin * carbFrac) / 4;
-        totalCarbsRaw += minutes * carbsPerMin;
-        totalKcalRaw += minutes * kcalMin;
     });
 
     const selectedIntensity = document.getElementById('s-load-intensity')?.value || 'auto';
-    const intensityKey = inferLoadIntensity(breakDown, selectedIntensity);
-    const intensity = LOAD_INTENSITY_SETTINGS[intensityKey] || LOAD_INTENSITY_SETTINGS.medium;
     const template = getSelectedTemplate();
-    const strengthModifier = template === 'fitko' || intensityKey === 'strength' ? 0.55 : 1;
-
-    let totalCarbsNeeded = Math.round(totalCarbsRaw * strengthModifier);
-    if (intensityKey === 'race' || template === 'triathlon' || selectedIntensity === 'race') {
-        const TARGET_CARBS_PER_KG = totalDuration >= 120 ? 8.0 : 6.0;
-        totalCarbsNeeded = Math.round(weight * TARGET_CARBS_PER_KG);
-    }
-
-    const totalSugarNeeded = Math.round(totalCarbsNeeded * intensity.sugarRatio);
-    const totalProteinNeeded = Math.round(weight * intensity.proteinPerKg);
-    const totalKcalBurned = Math.round(totalKcalRaw || totalDuration * (bio ? (Number(bio.weight) || 72) * 0.08 : 8));
-    
-    const carbDistribution = buildCarbDistribution(totalCarbsNeeded, totalSugarNeeded, intensityKey, breakDown, totalDuration);
+    const prediction = calculateTrainingPredictionFromBreakdown(breakDown, selectedIntensity, template);
+    const { totalCarbsNeeded, totalSugarNeeded, totalProteinNeeded, totalDuration, totalKcalBurned, intensityLabel } = prediction;
     const box = document.getElementById('carb-prediction-box');
 
     if (totalDuration <= 0) {
         if (box) box.style.display = 'none';
-        return { totalCarbsNeeded: 0, totalSugarNeeded: 0, totalProteinNeeded: 0, totalDuration, totalKcalBurned: 0, breakDown, intensityKey, intensityLabel: intensity.label, carbDistribution };
+        return prediction;
     }
 
     const carbsEl = document.getElementById('predicted-carbs');
@@ -170,10 +209,10 @@ function predictCarbload() {
     if (kcalEl) kcalEl.textContent = totalKcalBurned;
     if (sugarEl) sugarEl.textContent = totalSugarNeeded;
     if (proteinEl) proteinEl.textContent = totalProteinNeeded;
-    if (intensityEl) intensityEl.textContent = intensity.label;
+    if (intensityEl) intensityEl.textContent = intensityLabel;
     if (box) box.style.display = 'block';
 
-    return { totalCarbsNeeded, totalSugarNeeded, totalProteinNeeded, totalDuration, totalKcalBurned, breakDown, intensityKey, intensityLabel: intensity.label, carbDistribution };
+    return prediction;
 }
 
 
@@ -273,21 +312,7 @@ function openEditSportModal(date, itemId) {
         item.startTime = document.getElementById('edit-s-start-time').value || item.startTime;
         item.carbSharePrevDay = Number(document.getElementById('edit-s-carb-share-prev-day').value) || item.carbSharePrevDay;
 
-        // Recompute prediction based on updated zones
-        const oldPrediction = predictCarbload();
-        const updatedPred = (() => {
-            // Temporarily populate UI inputs with edited values to reuse predictCarbload
-            ['z1','z2','z3','z4','z5'].forEach(z => {
-                const el = document.getElementById('s-' + z);
-                if (el) el.value = item.breakDown[z] || 0;
-            });
-            const originalIntensity = document.getElementById('s-load-intensity')?.value;
-            const intensityEl = document.getElementById('s-load-intensity');
-            if (intensityEl) intensityEl.value = item.intensityKey;
-            const p = predictCarbload();
-            if (intensityEl) intensityEl.value = originalIntensity || 'auto';
-            return p;
-        })();
+        const updatedPred = calculateTrainingPredictionFromBreakdown(item.breakDown, item.intensityKey, item.template || 'vlastne');
 
         item.carbload = updatedPred.totalCarbsNeeded || item.carbload;
         item.sugarTarget = updatedPred.totalSugarNeeded || 0;
@@ -414,7 +439,7 @@ function calculateAfterSessionRecovery() {
         breakDown[z] = Math.max(0, Number(document.getElementById('real-' + z)?.value) || 0);
     });
 
-    const intensityKey = inferLoadIntensity(breakDown, 'auto');
+    const intensityKey = inferLoadIntensity(breakDown, 'auto', 'vlastne');
     const settings = LOAD_INTENSITY_SETTINGS[intensityKey] || LOAD_INTENSITY_SETTINGS.medium;
     const hardMinutes = (breakDown.z4 || 0) + (breakDown.z5 || 0);
     const carbBase = kcal > 0 ? kcal / 4 : duration * 0.7;
