@@ -627,6 +627,23 @@ function renderHydrationMetrics(date, totals = getFoodTotalsForDate(date)) {
 function renderCarbloadFoodSuggestions(date = AppState.selectedDate) {
     const el = DOM.get('carbload-food-suggestions');
     if (!el) return;
+    const mealPlan = buildDailyMealPlanSuggestions(date);
+    if (mealPlan.length) {
+        el.innerHTML = mealPlan.map((meal, index) => {
+            const foods = meal.foods.map(food => (
+                `<div style="font-size:12px;color:#4a5568;">${escapeFoodHtml(food.name)} · ${food.grams}g · B ${food.p.toFixed(0)} / S ${food.c.toFixed(0)} / T ${food.f.toFixed(0)}</div>`
+            )).join('');
+            return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#fff;">
+                <div style="display:flex;justify-content:space-between;gap:8px;align-items:start;">
+                    <div><strong>${escapeFoodHtml(meal.meal)}</strong><br><span style="font-size:11px;color:#718096;">${escapeFoodHtml(meal.note)} · cieľ B ${meal.targets.p} / S ${meal.targets.c} / T ${meal.targets.f}</span></div>
+                    <button type="button" class="preset-btn" data-meal-plan-add="${index}" style="background:#2b6cb0;color:#fff;">Zapísať</button>
+                </div>
+                <div style="display:grid;gap:3px;margin-top:6px;">${foods}</div>
+            </div>`;
+        }).join('');
+        return;
+    }
+
     const plan = typeof buildCarbloadPlanForDate === 'function' ? buildCarbloadPlanForDate(date) : null;
     if (!plan || !plan.carbs) {
         el.innerHTML = '<span style="font-size:12px;color:#718096;">Bez carbload cieľa.</span>';
@@ -685,6 +702,144 @@ function renderCarbloadFoodSuggestions(date = AppState.selectedDate) {
         const gi = Number(item.gi) || 55;
         return `<button type="button" class="preset-btn" data-carb-suggest="${escapeFoodHtml(item.name)}" style="text-align:left;background:#edf2f7;color:#2d3748;">${escapeFoodHtml(item.name)} · cca ${grams}g · komplexné S ${item.c}g · cukry ${item.sugar || 0}g · vláknina ${item.fiber || 0}g · GI ${gi}</button>`;
     }).join('');
+}
+
+function getMealPlanSplits(contextType, planKind) {
+    if (contextType === 'race' || planKind === 'event') {
+        return [
+            { meal: 'Raňajky', p: 0.25, c: 0.55, f: 0.15, note: '3 h pred štartom normálne jedlo', timing: 'preworkout' },
+            { meal: 'Obed', p: 0.35, c: 0.25, f: 0.35, note: 'po výkone normálne jedlo', timing: 'postworkout' },
+            { meal: 'Večera', p: 0.40, c: 0.20, f: 0.50, note: 'doplní bielkoviny a minerály', timing: 'normal' }
+        ];
+    }
+    if (contextType === 'strength') {
+        return [
+            { meal: 'Raňajky', p: 0.30, c: 0.25, f: 0.30, note: 'stabilná energia', timing: 'normal' },
+            { meal: 'Obed', p: 0.35, c: 0.45, f: 0.30, note: 'okolo tréningu viac sacharidov', timing: 'preworkout' },
+            { meal: 'Večera', p: 0.35, c: 0.30, f: 0.40, note: 'regenerácia po sile', timing: 'postworkout' }
+        ];
+    }
+    if (contextType === 'rest') {
+        return [
+            { meal: 'Raňajky', p: 0.32, c: 0.30, f: 0.32, note: 'voľno, nižšie sacharidy', timing: 'normal' },
+            { meal: 'Obed', p: 0.36, c: 0.40, f: 0.36, note: 'hlavné jedlo dňa', timing: 'normal' },
+            { meal: 'Večera', p: 0.32, c: 0.30, f: 0.32, note: 'ľahšia večera', timing: 'normal' }
+        ];
+    }
+    return [
+        { meal: 'Raňajky', p: 0.28, c: 0.30, f: 0.25, note: 'štart energie', timing: 'normal' },
+        { meal: 'Obed', p: 0.36, c: 0.45, f: 0.35, note: 'hlavné tréningové jedlo', timing: 'preworkout' },
+        { meal: 'Večera', p: 0.36, c: 0.25, f: 0.40, note: 'regenerácia', timing: 'postworkout' }
+    ];
+}
+
+function scorePresetForMacro(item, macro, contextType) {
+    const p = Number(item.p) || 0;
+    const c = Number(item.c) || 0;
+    const f = Number(item.f) || 0;
+    const sugarRatio = c > 0 ? (Number(item.sugar) || 0) / c : 0;
+    const fiber = Number(item.fiber) || 0;
+    const complexity = item.complexity || 'medium';
+    if (macro === 'p') return (p * 3) - (f * 0.7) - (sugarRatio * 8);
+    if (macro === 'f') return (f * 2) + (p * 0.2) - (sugarRatio * 10);
+    const complexBonus = complexity === 'complex' ? 18 : complexity === 'simple' ? -18 : 6;
+    const racePenalty = contextType === 'race' ? Math.max(0, fiber - 4) * 3 : 0;
+    return (c * 2) + complexBonus + Math.min(12, fiber * 2) - (sugarRatio * 35) - (f * 0.8) - racePenalty;
+}
+
+function pickPresetForMacro(presets, macro, usedNames, contextType) {
+    return presets
+        .filter(item => !usedNames.has(item.name))
+        .filter(item => {
+            if (macro === 'p') return (Number(item.p) || 0) >= 8;
+            if (macro === 'f') return (Number(item.f) || 0) >= 6;
+            return (Number(item.c) || 0) >= 10;
+        })
+        .sort((a, b) => scorePresetForMacro(b, macro, contextType) - scorePresetForMacro(a, macro, contextType))[0] || null;
+}
+
+function plannedFoodFromPreset(preset, grams, meal, timing) {
+    const multiplier = grams / 100;
+    const p = Math.round((Number(preset.p) || 0) * multiplier * 10) / 10;
+    const c = Math.round((Number(preset.c) || 0) * multiplier * 10) / 10;
+    const f = Math.round((Number(preset.f) || 0) * multiplier * 10) / 10;
+    const fiber = Math.round((Number(preset.fiber) || 0) * multiplier * 10) / 10;
+    const sugar = Math.min(c, Math.round((Number(preset.sugar) || 0) * multiplier * 10) / 10);
+    const item = {
+        id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+        name: preset.name,
+        meal,
+        timing,
+        weight: grams,
+        p,
+        c,
+        sugar,
+        f,
+        gi: Number(preset.gi) || 0,
+        complexity: preset.complexity || 'medium',
+        fiber,
+        water: Math.round((Number(preset.water) || 0) * multiplier),
+        salt: Math.round((Number(preset.salt) || 0) * multiplier * 10) / 10,
+        magnesium: Math.round((Number(preset.magnesium) || 0) * multiplier),
+        potassium: Math.round((Number(preset.potassium) || 0) * multiplier),
+        amino: Math.round((Number(preset.amino) || 0) * multiplier * 10) / 10,
+        createdAt: new Date().toISOString()
+    };
+    item.kcal = calculateFoodKcalFromMacros(item);
+    return item;
+}
+
+function buildDailyMealPlanSuggestions(date = AppState.selectedDate) {
+    const presets = getFoodPresets();
+    if (!presets.length || typeof getMacroTargetsForDate !== 'function') return [];
+    const totals = getFoodTotalsForDate(date);
+    const targets = getMacroTargetsForDate(date);
+    const contextType = targets.context?.type || 'rest';
+    const carbPlan = typeof buildCarbloadPlanForDate === 'function' ? buildCarbloadPlanForDate(date) : null;
+    const remaining = {
+        p: Math.max(0, targets.p - totals.p),
+        c: Math.max(0, targets.c - totals.c),
+        f: Math.max(0, targets.f - totals.f)
+    };
+    if ((remaining.p + remaining.c + remaining.f) < 25) return [];
+
+    const usedNames = new Set();
+    return getMealPlanSplits(contextType, carbPlan?.kind).map(split => {
+        const mealTargets = {
+            p: Math.round(remaining.p * split.p),
+            c: Math.round(remaining.c * split.c),
+            f: Math.round(remaining.f * split.f)
+        };
+        const foods = [];
+        const carbPreset = pickPresetForMacro(presets, 'c', usedNames, contextType);
+        if (carbPreset) {
+            usedNames.add(carbPreset.name);
+            foods.push(plannedFoodFromPreset(carbPreset, Math.min(260, Math.max(50, Math.round((mealTargets.c / Math.max(1, Number(carbPreset.c) || 1)) * 100))), split.meal, split.timing));
+        }
+        const proteinPreset = pickPresetForMacro(presets, 'p', usedNames, contextType);
+        if (proteinPreset) {
+            usedNames.add(proteinPreset.name);
+            foods.push(plannedFoodFromPreset(proteinPreset, Math.min(240, Math.max(60, Math.round((mealTargets.p / Math.max(1, Number(proteinPreset.p) || 1)) * 100))), split.meal, split.timing));
+        }
+        const fatPreset = mealTargets.f > 8 ? pickPresetForMacro(presets, 'f', usedNames, contextType) : null;
+        if (fatPreset) {
+            usedNames.add(fatPreset.name);
+            foods.push(plannedFoodFromPreset(fatPreset, Math.min(80, Math.max(15, Math.round((mealTargets.f / Math.max(1, Number(fatPreset.f) || 1)) * 100))), split.meal, split.timing));
+        }
+        return { meal: split.meal, note: `${targets.context?.label || 'Deň'}: ${split.note}`, targets: mealTargets, foods };
+    }).filter(meal => meal.foods.length);
+}
+
+function addSuggestedMealToDay(mealIndex, date = AppState.selectedDate) {
+    const meal = buildDailyMealPlanSuggestions(date)[mealIndex];
+    if (!meal || !meal.foods.length) return;
+    const allData = Storage.get(STORAGE_KEYS.FOOD);
+    allData[date] = allData[date] || [];
+    allData[date].push(...meal.foods.map(food => ({ ...food, id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`, createdAt: new Date().toISOString() })));
+    Storage.save(STORAGE_KEYS.FOOD, allData);
+    initDashboard();
+    loadFoodDay();
+    renderFoodDayMetrics(date);
 }
 
 function editLoggedFoodItem(date, itemId) {
@@ -884,6 +1039,11 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('carbload-food-suggestions')?.addEventListener('click', (event) => {
+        const mealBtn = event.target.closest('button[data-meal-plan-add]');
+        if (mealBtn) {
+            addSuggestedMealToDay(Number(mealBtn.dataset.mealPlanAdd) || 0);
+            return;
+        }
         const btn = event.target.closest('button[data-carb-suggest]');
         if (!btn) return;
         const preset = getFoodPresets().find(item => item.name === btn.dataset.carbSuggest);
