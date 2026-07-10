@@ -62,6 +62,10 @@
         .sport-history-card{border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#fff}
         .sport-history-card strong{display:block;font-size:13px}
         .sport-history-card span{display:block;font-size:11px;color:#718096}
+        .top-training-bar{position:sticky;top:0;z-index:10;margin:-4px -4px 8px;padding:8px 10px;border:1px solid #bee3f8;border-radius:8px;background:#ebf8ff;color:#2c5282;font-size:12px;font-weight:800}
+        .performance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;text-align:center}
+        .performance-grid b{display:block;font-size:16px}
+        .performance-grid span{font-size:11px;color:#718096}
         svg{display:block}
         /* Sport zone responsive styles */
         .zone-grid{display:grid;grid-template-columns:repeat(5,minmax(76px,1fr));gap:6px;text-align:center;overflow-x:auto;padding-bottom:4px}
@@ -85,6 +89,7 @@
             .hydration-grid b{font-size:13px}
             .hydration-grid span{font-size:10px}
             .profile-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+            .performance-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
         }
         @media (max-width: 360px){
             .macro-rings,.hydration-grid,.metric-grid-4{grid-template-columns:1fr}
@@ -106,6 +111,7 @@
 
     <!-- VIEW 1: DASHBOARD + ANALÝZY -->
     <div id="view-home" class="view active">
+        <div id="top-training-bar" class="top-training-bar">Zajtra: načítavam...</div>
         <div class="header">
             <h2>📅 Dnes</h2>
             <span id="date"></span>
@@ -158,6 +164,25 @@
         <div class="card">
             <h3>🏃‍♂️ Dnešná aktivita</h3>
             <div id="dash-sports-summary" style="margin-top: 6px; font-size: 14px; color: #4a5568;">Žiadny plánovaný tréning.</div>
+        </div>
+
+        <div class="card">
+            <h3>📉 Forma</h3>
+            <div class="performance-grid">
+                <div><b id="atl-value">0</b><span>ATL 7 dní</span></div>
+                <div><b id="ctl-value">0</b><span>CTL 42 dní</span></div>
+                <div><b id="tsb-value">0</b><span>TSB</span></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>❤️ Zdravotný denník</h3>
+            <div class="grid-3">
+                <input type="number" id="health-resthr" placeholder="Tep ráno" min="30">
+                <input type="number" id="health-sleep" placeholder="Spánok h" min="0" step="0.1">
+                <input type="number" id="health-hrv" placeholder="HRV ms" min="0">
+            </div>
+            <button type="button" id="btn-save-health" class="preset-btn" style="background:#2d3748;color:#fff;">Uložiť denník</button>
         </div>
 
         <div class="card landscape-only">
@@ -314,9 +339,14 @@
                     <input type="time" id="s-start-time" value="08:00">
                 </div>
                 <div>
-                    <label style="font-size:12px; color:#718096;">% carbloadu na predchádzajúci deň</label>
+                    <label style="font-size:12px; color:#718096;">% deň pred výkonom</label>
                     <input type="number" id="s-carb-share-prev-day" min="0" max="100" value="30">
                 </div>
+            </div>
+            <div class="grid-3">
+                <input type="number" id="s-carb-share-two-days" min="0" max="100" value="25" placeholder="2 dni pred %">
+                <input type="number" id="s-carb-share-one-day" min="0" max="100" value="60" placeholder="Deň pred %">
+                <input type="number" id="s-carb-share-event-day" min="0" max="100" value="15" placeholder="V deň %">
             </div>
             
             <div style="margin-top: 12px; margin-bottom: 6px;">
@@ -354,7 +384,8 @@
                 🍯 <b>Odporúčané cukry:</b> <span id="predicted-sugar" style="color:#d69e2e; font-weight:bold;">0</span>g<br>
                 🥩 <b>Bielkoviny po výkone:</b> <span id="predicted-protein" style="color:#2f855a; font-weight:bold;">0</span>g<br>
                 ⚙️ <b>Intenzita:</b> <span id="predicted-intensity" style="font-weight:bold;">-</span><br>
-                🔥 <b>Odhad spálenia:</b> <span id="predicted-kcal" style="color:#c53030; font-weight:bold;">0</span> kcal
+                🔥 <b>Odhad spálenia:</b> <span id="predicted-kcal" style="color:#c53030; font-weight:bold;">0</span> kcal<br>
+                📊 <b>TSS:</b> <span id="predicted-tss" style="color:#553c9a; font-weight:bold;">0</span>
             </div>
 
             <button type="button" id="btn-add-sport" class="btn-sports" style="margin-top:12px;">Uložiť do kalendára</button>
@@ -370,6 +401,11 @@
             <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
                 <input type="number" id="real-kcal" placeholder="Reálne kcal" min="0">
                 <input type="number" id="real-duration" placeholder="Trvanie min" min="0">
+            </div>
+            <div class="grid-3">
+                <input type="number" id="real-tss" placeholder="Reálne TSS" min="0">
+                <input type="number" id="real-resthr" placeholder="Tep ráno" min="30">
+                <input type="number" id="real-sleep" placeholder="Spánok h" min="0" step="0.1">
             </div>
             <div class="zone-grid" style="margin-top:6px;">
                 <div class="zone-card"><span>Z1</span><input type="number" id="real-z1" placeholder="min" min="0"></div>

@@ -295,7 +295,7 @@ function getFoodStrategyForDate(date) {
     const targets = getMacroTargetsForDate(date);
     const context = targets.context;
     if (context.type === 'race' || context.type === 'high') {
-        return 'Pred výkonom: low-fat, low-fiber, high-carb. Cukry drž v oknách podľa carbload plánu.';
+        return 'Pred výkonom: tuk do 10-12g a vláknina do 6-8g v posledných hodinách. Sacharidy drž vysoko podľa carbload plánu.';
     }
     if (context.type === 'strength') {
         return 'Fitko: viac bielkovín, sacharidy okolo tréningu, tuky mimo okna pred tréningom.';
@@ -405,11 +405,104 @@ function renderCarbloadPlanCard(date) {
     }
 }
 
+function getDateOffset(date, offset) {
+    const d = new Date(`${date}T00:00:00`);
+    d.setDate(d.getDate() + offset);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getAllSportsItems() {
+    const sportsStore = Storage.get(STORAGE_KEYS.SPORTS);
+    return Object.entries(sportsStore).flatMap(([date, items]) => (
+        Array.isArray(items) ? items.map(item => ({ ...item, date })) : []
+    ));
+}
+
+function getDayTss(date) {
+    const planned = (Storage.get(STORAGE_KEYS.SPORTS)[date] || []).reduce((sum, item) => {
+        const estimated = typeof calculateTssFromBreakdown === 'function'
+            ? calculateTssFromBreakdown(item.breakDown || {}, Number(item.duration) || 0)
+            : 0;
+        return sum + (Number(item.tss) || estimated || 0);
+    }, 0);
+    let real = 0;
+    try {
+        const recovery = JSON.parse(localStorage.getItem('pwa_recovery_log')) || {};
+        real = Number(recovery[date]?.tss) || 0;
+    } catch (e) {}
+    return Math.max(planned, real);
+}
+
+function rollingTssAverage(date, days) {
+    let total = 0;
+    for (let i = 0; i < days; i++) total += getDayTss(getDateOffset(date, -i));
+    return Math.round(total / days);
+}
+
+function renderPerformanceMetrics(date = getCurrentAppDate()) {
+    const atl = rollingTssAverage(date, 7);
+    const ctl = rollingTssAverage(date, 42);
+    const tsb = ctl - atl;
+    const set = (id, value) => {
+        const el = DOM.get(id);
+        if (el) el.textContent = value;
+    };
+    set('atl-value', atl);
+    set('ctl-value', ctl);
+    set('tsb-value', tsb > 0 ? `+${tsb}` : `${tsb}`);
+}
+
+function renderTopTrainingBar(date = getCurrentAppDate()) {
+    const el = DOM.get('top-training-bar');
+    if (!el) return;
+    const tomorrow = getDateOffset(date, 1);
+    const nextItems = Storage.get(STORAGE_KEYS.SPORTS)[tomorrow] || [];
+    const isRaceTomorrow = nextItems.some(item => item.intensityKey === 'race' || ['triathlon', 'duathlon', 'aquathlon'].includes(item.template));
+    const nextLabel = nextItems.length ? (isRaceTomorrow ? 'súťaž' : 'tréning') : 'voľno';
+    const race = getAllSportsItems()
+        .filter(item => item.date >= date && (item.intensityKey === 'race' || ['triathlon', 'duathlon', 'aquathlon'].includes(item.template)))
+        .sort((a, b) => a.date.localeCompare(b.date))[0];
+    const countdown = race ? ` · hlavná súťaž za ${Math.max(0, getDayDifference(date, race.date))} dní` : '';
+    const titles = nextItems.length ? ` · ${nextItems.map(item => item.title || 'Tréning').join(', ')}` : '';
+    el.textContent = `Zajtra: ${nextLabel}${titles}${countdown}`;
+}
+
+function getHealthLog() {
+    try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEYS.HEALTH)) || {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function loadHealthForDate(date = getCurrentAppDate()) {
+    const item = getHealthLog()[date] || {};
+    const set = (id, value) => {
+        const el = DOM.get(id);
+        if (el) el.value = value || '';
+    };
+    set('health-resthr', item.resthr);
+    set('health-sleep', item.sleep);
+    set('health-hrv', item.hrv);
+}
+
+function saveHealthForDate(date = getCurrentAppDate()) {
+    const all = getHealthLog();
+    all[date] = {
+        resthr: Number(DOM.get('health-resthr')?.value) || 0,
+        sleep: Number(DOM.get('health-sleep')?.value) || 0,
+        hrv: Number(DOM.get('health-hrv')?.value) || 0,
+        savedAt: new Date().toISOString()
+    };
+    localStorage.setItem(STORAGE_KEYS.HEALTH, JSON.stringify(all));
+}
+
 const BASE_TARGETS = Object.freeze({ kcal: 2000, p: 150, c: 200, f: 65 });
 const KCAL_PER_GRAM_CARB = 4;
 const STORAGE_KEYS = Object.freeze({
     FOOD: 'pwa_food_calendar',
-    SPORTS: 'pwa_sports_calendar'
+    SPORTS: 'pwa_sports_calendar',
+    HEALTH: 'pwa_health_log'
 });
 
 // Pomocná funkcia pre lokálny ISO dátum (odolný voči časovým pásmam)
@@ -561,6 +654,9 @@ function initDashboard() {
     if (typeof renderSportHistoryGraphs === 'function') {
         renderSportHistoryGraphs();
     }
+    renderPerformanceMetrics(date);
+    renderTopTrainingBar(date);
+    loadHealthForDate(date);
 }
 
 // ==========================================
@@ -585,6 +681,7 @@ function setupStateWatchers() {
         
         initDashboard();
         if (typeof loadSportDay === "function") loadSportDay();
+        if (typeof loadRecoveryForDate === 'function') loadRecoveryForDate(newDate);
     });
 }
 
@@ -603,5 +700,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     setupStateWatchers();
+    DOM.get('btn-save-health')?.addEventListener('click', () => saveHealthForDate(AppState.selectedDate));
     initDashboard();
 });

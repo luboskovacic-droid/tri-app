@@ -11,7 +11,7 @@ function attachAppInteractions() {
         if (typeof addSportItem === 'function') addSportItem();
     });
 
-    ['s-z1', 's-z2', 's-z3', 's-z4', 's-z5', 's-load-intensity'].forEach(id => {
+    ['s-z1', 's-z2', 's-z3', 's-z4', 's-z5', 's-load-intensity', 's-carb-share-two-days', 's-carb-share-one-day', 's-carb-share-event-day'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('input', () => {
