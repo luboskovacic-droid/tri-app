@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kcal-sport-pwa-v19';
+const CACHE_NAME = 'kcal-sport-pwa-v20';
 
 const ASSETS = [
   './',

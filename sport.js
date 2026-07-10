@@ -223,6 +223,44 @@ function getTrainingContextForDate(date) {
     return { type: 'endurance', label: 'Tréning', items };
 }
 
+function calculateTargetMacroKcal(protein, carbs, fat) {
+    return Math.round((protein * 4) + (carbs * 4) + (fat * 9));
+}
+
+function syncMacrosToKcalTarget(protein, carbs, fat, kcalTarget, contextType) {
+    const currentKcal = calculateTargetMacroKcal(protein, carbs, fat);
+    const gap = Math.max(0, Math.round(kcalTarget - currentKcal));
+    if (!gap) return { protein, carbs, fat, kcal: currentKcal };
+
+    let carbShare = 0.70;
+    let fatShare = 0.20;
+    let proteinShare = 0.10;
+
+    if (contextType === 'high' || contextType === 'race') {
+        carbShare = 0.88;
+        fatShare = 0.07;
+        proteinShare = 0.05;
+    } else if (contextType === 'strength') {
+        carbShare = 0.55;
+        fatShare = 0.15;
+        proteinShare = 0.30;
+    } else if (contextType === 'rest') {
+        carbShare = 0.45;
+        fatShare = 0.40;
+        proteinShare = 0.15;
+    }
+
+    const syncedProtein = protein + Math.round((gap * proteinShare) / 4);
+    const syncedCarbs = carbs + Math.round((gap * carbShare) / 4);
+    const syncedFat = fat + Math.round((gap * fatShare) / 9);
+    return {
+        protein: syncedProtein,
+        carbs: syncedCarbs,
+        fat: syncedFat,
+        kcal: calculateTargetMacroKcal(syncedProtein, syncedCarbs, syncedFat)
+    };
+}
+
 function getMacroTargetsForDate(date) {
     const weight = getAthleteWeight();
     const bio = getNormalizedBioProfile();
@@ -267,14 +305,14 @@ function getMacroTargetsForDate(date) {
     };
     const sugar = Math.max(sugarTargetGrams, baseSugarByContext[context.type] || 40);
 
-    const macroKcal = (protein * 4) + (carbs * 4) + (fat * 9);
     const baseKcal = getDailyKcalTarget(date) + (carbloadBonusGrams * KCAL_PER_GRAM_CARB);
+    const synced = syncMacrosToKcalTarget(protein, carbs, fat, baseKcal, context.type);
 
     return {
-        kcal: Math.round(Math.max(baseKcal, macroKcal)),
-        p: protein,
-        c: carbs,
-        f: fat,
+        kcal: synced.kcal,
+        p: synced.protein,
+        c: synced.carbs,
+        f: synced.fat,
         sugar,
         fiber: Math.max(20, Math.round(weight * 0.35)),
         metabolism,
@@ -643,7 +681,6 @@ function initDashboard() {
         kcalCircle.style.background = `conic-gradient(${progressColor} ${degrees}deg, #e2e8f0 ${degrees}deg)`;
     }
     
-    renderCarbloadPlanCard(date);
     if (typeof renderFoodDayMetrics === 'function') renderFoodDayMetrics(date);
     if (typeof renderMetabolismPanel === 'function') renderMetabolismPanel();
     if (typeof renderHeartZoneGuide === 'function') renderHeartZoneGuide();

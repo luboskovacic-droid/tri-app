@@ -40,6 +40,11 @@ function attachAppInteractions() {
         const el = document.getElementById('gi-help');
         if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
     });
+
+    document.getElementById('btn-form-help')?.addEventListener('click', () => {
+        const el = document.getElementById('form-help');
+        if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
+    });
 }
 
 window.addEventListener('DOMContentLoaded', () => {

@@ -66,6 +66,8 @@
         .performance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;text-align:center}
         .performance-grid b{display:block;font-size:16px}
         .performance-grid span{font-size:11px;color:#718096}
+        .inline-help-btn{width:28px;height:28px;padding:0;border-radius:999px;background:#edf2f7;color:#2d3748;border:1px solid #cbd5e1;box-shadow:none}
+        .inline-help{display:none;margin-top:8px;font-size:12px;color:#4a5568;background:#f7fafc;border-left:4px solid #3182ce;padding:8px;border-radius:6px}
         svg{display:block}
         /* Sport zone responsive styles */
         .zone-grid{display:grid;grid-template-columns:repeat(5,minmax(76px,1fr));gap:6px;text-align:center;overflow-x:auto;padding-bottom:4px}
@@ -167,12 +169,16 @@
         </div>
 
         <div class="card">
-            <h3>📉 Forma</h3>
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+                <h3 style="margin:0;">📉 Forma</h3>
+                <button type="button" id="btn-form-help" class="inline-help-btn" aria-label="Vysvetlenie formy">?</button>
+            </div>
             <div class="performance-grid">
                 <div><b id="atl-value">0</b><span>ATL 7 dní</span></div>
                 <div><b id="ctl-value">0</b><span>CTL 42 dní</span></div>
                 <div><b id="tsb-value">0</b><span>TSB</span></div>
             </div>
+            <div id="form-help" class="inline-help">ATL je krátkodobá únava za 7 dní. CTL je kondícia za 42 dní. TSB = CTL - ATL: plus znamená čerstvosť, mínus znamená únavu pred ladením formy.</div>
         </div>
 
         <div class="card">
@@ -190,11 +196,6 @@
             <div id="sport-history-graphs" class="sport-history-grid"></div>
         </div>
 
-        <div class="card">
-            <h3>🥔 Carbload plán</h3>
-            <div id="carbload-plan-summary" style="margin-top: 6px; font-size: 14px; color: #4a5568;">Žiadny plán carbloadu.</div>
-            <div id="carbload-plan-times" style="margin-top: 8px; display:grid; gap:4px; font-size:13px; color:#2d3748;"></div>
-        </div>
     </div>
 
     <!-- VIEW 2: KALENDÁR STRAVY -->
@@ -207,6 +208,7 @@
         <div class="card">
             <h3>🎯 Ciele dňa</h3>
             <div class="macro-rings">
+                <div class="macro-ring" id="food-ring-kcal"><div class="macro-ring-inner"><strong id="food-ring-kcal-text">0/0</strong><span>kcal</span></div></div>
                 <div class="macro-ring" id="food-ring-c"><div class="macro-ring-inner"><strong id="food-ring-c-text">0/0</strong><span>S</span></div></div>
                 <div class="macro-ring" id="food-ring-p"><div class="macro-ring-inner"><strong id="food-ring-p-text">0/0</strong><span>B</span></div></div>
                 <div class="macro-ring" id="food-ring-f"><div class="macro-ring-inner"><strong id="food-ring-f-text">0/0</strong><span>T</span></div></div>

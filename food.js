@@ -601,8 +601,11 @@ function setFoodRing(id, textId, current, target) {
     const text = DOM.get(textId);
     const pct = target > 0 ? current / target : 0;
     const degrees = Math.min(360, pct * 360);
-    let color = '#48bb78';
+    let color = '#3182ce';
     if (target <= 0) color = '#48bb78';
+    else if (pct < 0.85) color = '#3182ce';
+    else if (pct < 0.98) color = '#4299e1';
+    else if (pct <= 1.05) color = '#48bb78';
     else if (pct >= 1.5) color = '#e53e3e';
     else if (pct > 1.15) color = '#ed8936';
     else if (pct > 1) color = '#ecc94b';
@@ -615,6 +618,7 @@ function renderFoodDayMetrics(date = AppState.selectedDate) {
     const targets = typeof getMacroTargetsForDate === 'function'
         ? getMacroTargetsForDate(date)
         : { c: 200, p: 150, f: 65, sugar: 0 };
+    setFoodRing('food-ring-kcal', 'food-ring-kcal-text', totals.kcal, targets.kcal || 0);
     setFoodRing('food-ring-c', 'food-ring-c-text', totals.c, targets.c);
     setFoodRing('food-ring-p', 'food-ring-p-text', totals.p, targets.p);
     setFoodRing('food-ring-f', 'food-ring-f-text', totals.f, targets.f);
