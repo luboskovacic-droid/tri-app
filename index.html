@@ -9,8 +9,9 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%233182ce'/%3E%3Ctext x='50%25' y='55%25' font-size='40' text-anchor='middle' fill='%23fff' font-family='system-ui, sans-serif'%3E⚡%3C/text%3E%3C/svg%3E">
     <style>
         :root{--primary:#2b6cb0;--sports:#3182ce;--muted:#718096;--bg:#fff}
-        html,body{height:100%;margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
-        .view{display:none;padding:12px;max-width:100%;overflow-x:hidden;box-sizing:border-box}
+        html,body{min-height:100%;margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+        body{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+        .view{display:none;padding:12px 12px calc(112px + env(safe-area-inset-bottom));max-width:100%;overflow-x:hidden;box-sizing:border-box}
         .view.active{display:block}
         .header{display:flex;justify-content:space-between;align-items:center}
         h2{margin:0 0 8px 0;font-size:18px}
@@ -53,6 +54,14 @@
         .metric-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
         .meal-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
         .chart-container{width:100%;overflow:hidden}
+        .profile-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;text-align:center}
+        .profile-summary-grid b{display:block;font-size:15px;overflow-wrap:anywhere}
+        .profile-summary-grid span{font-size:11px;color:#718096}
+        .landscape-only{display:none}
+        .sport-history-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+        .sport-history-card{border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#fff}
+        .sport-history-card strong{display:block;font-size:13px}
+        .sport-history-card span{display:block;font-size:11px;color:#718096}
         svg{display:block}
         /* Sport zone responsive styles */
         .zone-grid{display:grid;grid-template-columns:repeat(5,minmax(76px,1fr));gap:6px;text-align:center;overflow-x:auto;padding-bottom:4px}
@@ -75,6 +84,7 @@
             .hydration-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
             .hydration-grid b{font-size:13px}
             .hydration-grid span{font-size:10px}
+            .profile-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
         }
         @media (max-width: 360px){
             .macro-rings,.hydration-grid,.metric-grid-4{grid-template-columns:1fr}
@@ -82,6 +92,10 @@
         @media (orientation: landscape) and (max-height: 520px){
             .modal{align-items:flex-start;padding:8px}
             .modal-card{width:96vw;max-height:calc(100vh - 16px)}
+            #view-home.active{display:grid;grid-template-columns:minmax(220px,.8fr) minmax(360px,1.2fr);gap:10px;align-items:start}
+            #view-home .header,#view-home #profile-card,#view-home .circle-progress,#view-home .metric-grid-4{grid-column:auto}
+            #view-home .card{margin:0 0 8px}
+            .landscape-only{display:block}
         }
     </style>
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -97,23 +111,15 @@
             <span id="date"></span>
         </div>
         <div class="card" id="profile-card" style="margin-top:8px;">
-            <h3>👤 Profil</h3>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
-                <input type="number" id="bio-weight" placeholder="Hmotnosť (kg)" min="30">
-                <input type="number" id="bio-height" placeholder="Výška (cm)" min="100">
-                <input type="number" id="bio-age" placeholder="Vek" min="10">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+                <h3 style="margin:0;">👤 Profil</h3>
+                <button type="button" id="btn-open-profile" class="preset-btn" style="width:auto;background:#2d3748;color:#fff;">Upraviť</button>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;">
-                <select id="bio-sex">
-                    <option value="male">Muž</option>
-                    <option value="female">Žena</option>
-                </select>
-                <input type="number" id="bio-resthr" placeholder="Kľudový tep" min="30">
-                <input type="number" id="bio-maxhr" placeholder="Maximálny tep (voliteľné)" min="80">
-            </div>
-            <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
-                <button id="btn-save-bio">Uložiť profil</button>
-                <small id="bio-saved" style="color:var(--muted);display:none;">Profil uložený</small>
+            <div id="profile-summary" class="profile-summary-grid" style="margin-top:10px;">
+                <div><b id="bio-summary-year">-</b><br><span>Rok nar.</span></div>
+                <div><b id="bio-summary-weight">0</b><br><span>kg</span></div>
+                <div><b id="bio-summary-height">0</b><br><span>cm</span></div>
+                <div><b id="bio-summary-goal">Fit</b><br><span>Cieľ</span></div>
             </div>
             <div id="metabolism-summary" class="metric-grid-4" style="margin-top:10px;">
                 <div><b id="bio-bmr">0</b><br><span>BMR</span></div>
@@ -152,6 +158,11 @@
         <div class="card">
             <h3>🏃‍♂️ Dnešná aktivita</h3>
             <div id="dash-sports-summary" style="margin-top: 6px; font-size: 14px; color: #4a5568;">Žiadny plánovaný tréning.</div>
+        </div>
+
+        <div class="card landscape-only">
+            <h3>📈 Športy za celé obdobie</h3>
+            <div id="sport-history-graphs" class="sport-history-grid"></div>
         </div>
 
         <div class="card">
@@ -194,11 +205,6 @@
             </div>
         </div>
 
-        <div class="card">
-            <h3>🥔 Návrh jedál podľa kalendára</h3>
-            <div id="carbload-food-suggestions" style="display:grid;gap:6px;"></div>
-        </div>
-        
         <div class="card">
             <h3>➕ Zapísať jedlo do dňa</h3>
             <div style="font-size:12px;color:#718096;margin-bottom:8px;">Vyhľadaj jedlo, vyber z návrhov, zadaj gramy a zapíš ho do dňa. Nové jedlo sa po zápise uloží do databázy.</div>
@@ -417,6 +423,66 @@
         </div>
     </div>
 
+    <div id="profile-modal" class="modal" aria-hidden="true">
+        <div class="modal-card">
+            <h3 style="margin-top:0;">Profil triatlonistu</h3>
+            <div class="grid-3">
+                <input type="number" id="bio-weight" placeholder="Hmotnosť (kg)" min="30">
+                <input type="number" id="bio-height" placeholder="Výška (cm)" min="100">
+                <input type="number" id="bio-birth-year" placeholder="Rok narodenia" min="1930">
+            </div>
+            <div class="grid-3">
+                <select id="bio-sex">
+                    <option value="male">Muž</option>
+                    <option value="female">Žena</option>
+                </select>
+                <input type="number" id="bio-resthr" placeholder="Kľudový tep" min="30">
+                <input type="number" id="bio-maxhr" placeholder="Maximálny tep" min="80">
+            </div>
+            <div class="grid-3">
+                <select id="bio-goal">
+                    <option value="fit">Fit / výkon</option>
+                    <option value="lose">Schudnúť</option>
+                    <option value="gain">Pribrať</option>
+                </select>
+                <select id="bio-training">
+                    <option value="endurance">Vytrvalosť</option>
+                    <option value="strength">Sila</option>
+                    <option value="race">Súťaž</option>
+                    <option value="rest">Voľno</option>
+                </select>
+                <input type="number" id="bio-waist" placeholder="Obvod pása (cm)" min="40">
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+                <button type="button" id="btn-close-profile" class="preset-btn" style="background:#718096;color:#fff;">Zatvoriť</button>
+                <button type="button" id="btn-save-bio">Uložiť profil</button>
+            </div>
+            <small id="bio-saved" style="color:var(--muted);display:none;">Profil uložený</small>
+        </div>
+    </div>
+
+    <div id="new-food-modal" class="modal" aria-hidden="true">
+        <div class="modal-card">
+            <h3 style="margin-top:0;">Nová surovina</h3>
+            <div class="grid-2">
+                <input type="text" id="new-food-name" placeholder="Názov suroviny">
+                <input type="text" id="new-food-category" placeholder="Kategória">
+            </div>
+            <div class="grid-3">
+                <input type="number" id="new-food-kcal" placeholder="Kcal / 100g" min="0">
+                <input type="number" id="new-food-p" placeholder="B (g)" min="0" step="0.1">
+                <input type="number" id="new-food-c" placeholder="S (g)" min="0" step="0.1">
+                <input type="number" id="new-food-sugar" placeholder="Cukry (g)" min="0" step="0.1">
+                <input type="number" id="new-food-f" placeholder="T (g)" min="0" step="0.1">
+                <input type="number" id="new-food-fiber" placeholder="Vláknina (g)" min="0" step="0.1">
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+                <button type="button" id="btn-close-new-food" class="preset-btn" style="background:#718096;color:#fff;">Zatvoriť</button>
+                <button type="button" id="btn-save-new-food">Pridať surovinu</button>
+            </div>
+        </div>
+    </div>
+
     <div id="sport-edit-modal" class="modal" aria-hidden="true">
         <div class="modal-card">
             <h3 style="margin-top:0;">Upraviť tréning</h3>
@@ -487,11 +553,16 @@
                 if (!raw) return;
                 const bio = JSON.parse(raw);
                 if (!bio) return;
-                const fields = ['weight','height','age','sex','resthr','maxhr'];
+                const fields = ['weight','height','birth-year','sex','resthr','maxhr','goal','training','waist'];
                 fields.forEach(f => {
                     const el = document.getElementById('bio-' + f);
-                    if (el && bio[f] !== undefined) el.value = bio[f];
+                    const key = f.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+                    if (el && bio[key] !== undefined) el.value = bio[key];
                 });
+                if (!bio.birthYear && bio.age) {
+                    const el = document.getElementById('bio-birth-year');
+                    if (el) el.value = new Date().getFullYear() - Number(bio.age);
+                }
             } catch (e) { console.warn('loadBio', e); }
         }
 
@@ -499,11 +570,15 @@
             try {
                 const weight = Number(document.getElementById('bio-weight')?.value) || 0;
                 const height = Number(document.getElementById('bio-height')?.value) || 0;
-                const age = Number(document.getElementById('bio-age')?.value) || 0;
+                const birthYear = Number(document.getElementById('bio-birth-year')?.value) || 0;
                 const sex = document.getElementById('bio-sex')?.value || 'male';
                 const resthr = Number(document.getElementById('bio-resthr')?.value) || 0;
                 const maxhr = Number(document.getElementById('bio-maxhr')?.value) || 0;
-                const bio = { weight, height, age, sex, resthr, maxhr, savedAt: new Date().toISOString() };
+                const goal = document.getElementById('bio-goal')?.value || 'fit';
+                const training = document.getElementById('bio-training')?.value || 'endurance';
+                const waist = Number(document.getElementById('bio-waist')?.value) || 0;
+                const age = birthYear ? Math.max(10, new Date().getFullYear() - birthYear) : 0;
+                const bio = { weight, height, birthYear, age, sex, resthr, maxhr, goal, training, waist, savedAt: new Date().toISOString() };
                 localStorage.setItem('tri_user_bio_v1', JSON.stringify(bio));
                 const hint = document.getElementById('bio-saved'); if (hint) { hint.style.display = 'inline'; setTimeout(()=>hint.style.display='none',1500); }
                 try {
@@ -512,6 +587,7 @@
                 if (typeof initDashboard === 'function') initDashboard();
                 renderMetabolismPanel();
                 renderHeartZoneGuide();
+                renderSportHistoryGraphs();
                     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
                         window.dispatchEvent(new Event('storage'));
                     }
@@ -522,8 +598,17 @@
         document.addEventListener('DOMContentLoaded', () => {
             const saveBtn = document.getElementById('btn-save-bio');
             saveBtn?.addEventListener('click', saveBio);
+            document.getElementById('btn-open-profile')?.addEventListener('click', () => {
+                loadBio();
+                document.getElementById('profile-modal')?.classList.add('open');
+            });
+            document.getElementById('btn-close-profile')?.addEventListener('click', () => document.getElementById('profile-modal')?.classList.remove('open'));
+            document.getElementById('profile-modal')?.addEventListener('click', (event) => {
+                if (event.target.id === 'profile-modal') event.target.classList.remove('open');
+            });
             renderMetabolismPanel();
             renderHeartZoneGuide();
+            renderSportHistoryGraphs();
         });
 
         function renderMetabolismPanel() {
@@ -537,6 +622,10 @@
             set('bio-tdee', `${summary.baseTdee}`);
             set('bio-training-kcal', `${summary.plannedExerciseKcal}`);
             set('bio-maxhr-out', `${summary.bio.maxhr}`);
+            set('bio-summary-year', summary.bio.birthYear || '-');
+            set('bio-summary-weight', `${summary.bio.weight}`);
+            set('bio-summary-height', `${summary.bio.height}`);
+            set('bio-summary-goal', summary.bio.goalLabel || 'Fit');
         }
 
         function renderHeartZoneGuide() {
@@ -633,6 +722,36 @@
                 const trainingKcal = sportStore.reduce((s,i)=>s+(Number(i.kcalBurned)||0),0);
                 dash.textContent = `${sportStore.length} aktivity · tréning ${trainingKcal} kcal · Carbload +${carbs}g · Prijaté ${kcal} kcal`;
             }
+        }
+
+        function renderSportHistoryGraphs() {
+            const el = document.getElementById('sport-history-graphs');
+            if (!el || typeof Storage === 'undefined') return;
+            const sportsStore = Storage.get(STORAGE_KEYS.SPORTS);
+            const totals = {};
+            Object.values(sportsStore).forEach(items => {
+                if (!Array.isArray(items)) return;
+                items.forEach(item => {
+                    const key = item.template && item.template !== 'vlastne' ? item.template : (item.title || 'Tréning');
+                    totals[key] = totals[key] || { minutes: 0, kcal: 0, count: 0 };
+                    totals[key].minutes += Number(item.duration) || 0;
+                    totals[key].kcal += Number(item.kcalBurned) || 0;
+                    totals[key].count += 1;
+                });
+            });
+            const rows = Object.entries(totals).sort((a, b) => b[1].minutes - a[1].minutes).slice(0, 6);
+            if (!rows.length) {
+                el.innerHTML = '<span style="font-size:12px;color:#718096;">Zatiaľ bez športovej histórie.</span>';
+                return;
+            }
+            const maxMinutes = Math.max(...rows.map(([, value]) => value.minutes), 1);
+            el.innerHTML = rows.map(([name, value]) => {
+                const pct = Math.max(6, Math.round((value.minutes / maxMinutes) * 100));
+                const safeName = typeof escapeFoodHtml === 'function'
+                    ? escapeFoodHtml(name)
+                    : String(name).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                return `<div class="sport-history-card"><strong>${safeName}</strong><span>${Math.round(value.minutes / 60 * 10) / 10} h · ${value.count}x · ${Math.round(value.kcal)} kcal</span><div style="height:8px;background:#e2e8f0;border-radius:99px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:#3182ce;"></div></div></div>`;
+            }).join('');
         }
 
         // ServiceWorker registracia (zachovat offline cache z sw.js)

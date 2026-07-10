@@ -1,5 +1,6 @@
 const FOOD_PRESET_STORAGE_KEY = 'tri_food_presets_v1';
 const MEAL_ORDER = ['Raňajky', 'Desiata', 'Obed', 'Olovrant', 'Večera', 'Druhá večera', 'Nezaradené'];
+let editingFoodRef = null;
 
 const DEFAULT_FOOD_PRESETS = [
     { name: 'Ovsené vločky', category: 'Karbóny', kcal: 389, p: 16.9, c: 66.3, sugar: 0.9, f: 6.9 },
@@ -131,7 +132,8 @@ function renderFoodSuggestions() {
 
     suggestions.innerHTML = '';
     if (!matches.length) {
-        suggestions.classList.remove('open');
+        suggestions.innerHTML = `<button type="button" class="food-suggestion" data-action="open-new-food"><strong>Pridať novú surovinu</strong><span>${escapeFoodHtml(searchInput.value.trim() || 'Nová surovina')}</span></button>`;
+        suggestions.classList.add('open');
         return;
     }
 
@@ -505,8 +507,9 @@ function addFoodItem() {
     const macroKcal = calculateFoodKcalFromMacros({ p: protein, c: carbs, fiber, f: fat });
     const labelKcal = Math.round(getNutrient(kcalInput) * multiplier);
 
+    const existingId = editingFoodRef?.date === date ? editingFoodRef.itemId : null;
     const newItem = {
-        id: crypto.randomUUID?.() || Date.now().toString(),
+        id: existingId || crypto.randomUUID?.() || Date.now().toString(),
         name,
         meal: mealInput?.value || 'Raňajky',
         timing: timingInput?.value || 'normal',
@@ -529,9 +532,20 @@ function addFoodItem() {
 
     const allData = Storage.get(STORAGE_KEYS.FOOD);
     allData[date] = allData[date] || [];
-    allData[date].push(newItem);
+    if (existingId) {
+        const index = allData[date].findIndex(item => (item.id || item.createdAt) === existingId);
+        if (index >= 0) {
+            allData[date][index] = { ...allData[date][index], ...newItem, id: existingId, updatedAt: new Date().toISOString() };
+        } else {
+            allData[date].push(newItem);
+        }
+    } else {
+        allData[date].push(newItem);
+    }
 
     Storage.save(STORAGE_KEYS.FOOD, allData);
+    editingFoodRef = null;
+    setFoodAddButtonMode(false);
 
     const preset = buildPresetFromForm();
     if (preset) upsertFoodPreset(preset);
@@ -588,7 +602,8 @@ function setFoodRing(id, textId, current, target) {
     const pct = target > 0 ? current / target : 0;
     const degrees = Math.min(360, pct * 360);
     let color = '#48bb78';
-    if (pct >= 1.5) color = '#e53e3e';
+    if (target <= 0) color = '#48bb78';
+    else if (pct >= 1.5) color = '#e53e3e';
     else if (pct > 1.15) color = '#ed8936';
     else if (pct > 1) color = '#ecc94b';
     if (ring) ring.style.background = `conic-gradient(${color} ${degrees}deg,#e2e8f0 ${degrees}deg)`;
@@ -627,6 +642,8 @@ function renderHydrationMetrics(date, totals = getFoodTotalsForDate(date)) {
 function renderCarbloadFoodSuggestions(date = AppState.selectedDate) {
     const el = DOM.get('carbload-food-suggestions');
     if (!el) return;
+    el.innerHTML = '';
+    return;
     const mealPlan = buildDailyMealPlanSuggestions(date);
     if (mealPlan.length) {
         el.innerHTML = mealPlan.map((meal, index) => {
@@ -871,7 +888,68 @@ function editLoggedFoodItem(date, itemId) {
     setValue('f-magnesium', Math.round((Number(item.magnesium) || 0) / multiplier));
     setValue('f-potassium', Math.round((Number(item.potassium) || 0) / multiplier));
     setValue('f-amino', Math.round(((Number(item.amino) || 0) / multiplier) * 10) / 10);
-    deleteFoodItem(date, itemId);
+    editingFoodRef = { date, itemId };
+    setFoodAddButtonMode(true);
+    DOM.get('f-name')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function setFoodAddButtonMode(isEditing) {
+    const btn = DOM.get('btn-add-food');
+    if (!btn) return;
+    btn.textContent = isEditing ? 'Uložiť zmenu' : 'Pridať do dňa';
+}
+
+function foodSearchHasExactMatch() {
+    const searchValue = DOM.get('f-search')?.value?.trim().toLowerCase() || '';
+    const nameValue = DOM.get('f-name')?.value?.trim().toLowerCase() || '';
+    const value = nameValue || searchValue;
+    if (!value) return true;
+    return getFoodPresets().some(item => item.name.toLowerCase() === value);
+}
+
+function openNewFoodModal(prefill = '') {
+    const modal = document.getElementById('new-food-modal');
+    const nameInput = document.getElementById('new-food-name');
+    if (nameInput) nameInput.value = prefill || DOM.get('f-search')?.value || DOM.get('f-name')?.value || '';
+    const categoryInput = document.getElementById('new-food-category');
+    if (categoryInput && !categoryInput.value) categoryInput.value = 'Ostatné';
+    modal?.classList.add('open');
+}
+
+function handleAddFoodButton() {
+    const searchValue = DOM.get('f-search')?.value?.trim() || '';
+    const nameValue = DOM.get('f-name')?.value?.trim() || '';
+    const hasMacros = ['f-kcal', 'f-p', 'f-c', 'f-f'].some(id => Number(DOM.get(id)?.value) > 0);
+    if (!editingFoodRef && searchValue && !nameValue && !foodSearchHasExactMatch()) {
+        openNewFoodModal(searchValue);
+        return;
+    }
+    if (!editingFoodRef && searchValue && !foodSearchHasExactMatch() && !hasMacros) {
+        openNewFoodModal(searchValue);
+        return;
+    }
+    addFoodItem();
+}
+
+function saveNewFoodFromModal() {
+    const name = document.getElementById('new-food-name')?.value?.trim();
+    if (!name) return;
+    const carbs = Math.max(0, Number(document.getElementById('new-food-c')?.value) || 0);
+    const preset = normalizeFoodPreset({
+        name,
+        category: document.getElementById('new-food-category')?.value?.trim() || 'Ostatné',
+        kcal: Math.max(0, Number(document.getElementById('new-food-kcal')?.value) || 0),
+        p: Math.max(0, Number(document.getElementById('new-food-p')?.value) || 0),
+        c: carbs,
+        sugar: Math.min(carbs, Math.max(0, Number(document.getElementById('new-food-sugar')?.value) || 0)),
+        f: Math.max(0, Number(document.getElementById('new-food-f')?.value) || 0),
+        fiber: Math.max(0, Number(document.getElementById('new-food-fiber')?.value) || 0)
+    });
+    upsertFoodPreset(preset);
+    applyFoodPreset(preset);
+    const searchInput = DOM.get('f-search');
+    if (searchInput) searchInput.value = preset.name;
+    document.getElementById('new-food-modal')?.classList.remove('open');
 }
 
 function renderFoodTimeline(date = AppState.selectedDate) {
@@ -968,6 +1046,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
     foodSearch?.addEventListener('input', renderFoodSuggestions);
     foodSearch?.addEventListener('focus', renderFoodSuggestions);
+    suggestions?.addEventListener('click', (event) => {
+        const btn = event.target.closest('button[data-action="open-new-food"]');
+        if (!btn) return;
+        openNewFoodModal(foodSearch?.value || '');
+        suggestions.classList.remove('open');
+    });
     document.addEventListener('click', (event) => {
         if (!event.target.closest('.food-suggest-wrap')) suggestions?.classList.remove('open');
     });
@@ -975,6 +1059,11 @@ window.addEventListener('DOMContentLoaded', () => {
     closeBtn?.addEventListener('click', () => modal?.classList.remove('open'));
     modal?.addEventListener('click', (e) => {
         if (e.target === modal) modal.classList.remove('open');
+    });
+    document.getElementById('btn-close-new-food')?.addEventListener('click', () => document.getElementById('new-food-modal')?.classList.remove('open'));
+    document.getElementById('btn-save-new-food')?.addEventListener('click', saveNewFoodFromModal);
+    document.getElementById('new-food-modal')?.addEventListener('click', (event) => {
+        if (event.target.id === 'new-food-modal') event.target.classList.remove('open');
     });
 
     saveBtn?.addEventListener('click', () => {

@@ -520,6 +520,7 @@ function safelyRefreshUI() {
         loadSportDay();
         if (typeof initDashboard === 'function') initDashboard();
         if (typeof renderFoodDayMetrics === 'function') renderFoodDayMetrics();
+        if (typeof renderSportHistoryGraphs === 'function') renderSportHistoryGraphs();
 
         // Vysielame CustomEvent, aby sa prípadné kalendáre (FullCalendar atď.) vedeli synchronizovať
         const all = getSportsCalendar();

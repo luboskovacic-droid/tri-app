@@ -3,7 +3,8 @@ function attachAppInteractions() {
     const addSportBtn = document.getElementById('btn-add-sport');
 
     addFoodBtn?.addEventListener('click', () => {
-        if (typeof addFoodItem === 'function') addFoodItem();
+        if (typeof handleAddFoodButton === 'function') handleAddFoodButton();
+        else if (typeof addFoodItem === 'function') addFoodItem();
     });
 
     addSportBtn?.addEventListener('click', () => {

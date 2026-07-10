@@ -17,10 +17,14 @@ function getBioProfile() {
 const DEFAULT_BIO_PROFILE = Object.freeze({
     weight: 70,
     height: 175,
+    birthYear: 0,
     age: 30,
     sex: 'male',
     resthr: 60,
-    maxhr: 0
+    maxhr: 0,
+    goal: 'fit',
+    training: 'endurance',
+    waist: 0
 });
 
 const ACTIVITY_FACTORS = Object.freeze({
@@ -34,19 +38,29 @@ const ACTIVITY_FACTORS = Object.freeze({
 function getNormalizedBioProfile() {
     const bio = getBioProfile();
     const merged = { ...DEFAULT_BIO_PROFILE, ...(bio || {}) };
-    const age = Math.max(10, Math.min(95, Number(merged.age) || DEFAULT_BIO_PROFILE.age));
+    const currentYear = new Date().getFullYear();
+    const birthYear = Number(merged.birthYear) || (Number(merged.age) ? currentYear - Number(merged.age) : 0);
+    const ageFromBirthYear = birthYear ? currentYear - birthYear : 0;
+    const age = Math.max(10, Math.min(95, ageFromBirthYear || Number(merged.age) || DEFAULT_BIO_PROFILE.age));
     const estimatedMaxHr = Math.round(208 - (0.7 * age));
     const maxhr = Number(merged.maxhr) > 0 ? Number(merged.maxhr) : estimatedMaxHr;
     const resthr = Math.max(30, Math.min(maxhr - 5, Number(merged.resthr) || DEFAULT_BIO_PROFILE.resthr));
+    const goal = ['gain', 'fit', 'lose'].includes(merged.goal) ? merged.goal : 'fit';
+    const training = ['rest', 'endurance', 'strength', 'race'].includes(merged.training) ? merged.training : 'endurance';
 
     return {
         weight: Math.max(35, Math.min(180, Number(merged.weight) || DEFAULT_BIO_PROFILE.weight)),
         height: Math.max(120, Math.min(230, Number(merged.height) || DEFAULT_BIO_PROFILE.height)),
+        birthYear,
         age,
         sex: merged.sex === 'female' ? 'female' : 'male',
         resthr,
         maxhr,
-        estimatedMaxHr
+        estimatedMaxHr,
+        goal,
+        goalLabel: goal === 'gain' ? 'Pribrať' : goal === 'lose' ? 'Schudnúť' : 'Fit',
+        training,
+        waist: Math.max(0, Number(merged.waist) || 0)
     };
 }
 
@@ -192,7 +206,14 @@ function getSugarTargetForDate(date) {
 function getTrainingContextForDate(date) {
     const sportsStore = Storage.get(STORAGE_KEYS.SPORTS);
     const items = sportsStore[date] || [];
-    if (!Array.isArray(items) || !items.length) return { type: 'rest', label: 'Voľno', items: [] };
+    if (!Array.isArray(items) || !items.length) {
+        const preferredTraining = getNormalizedBioProfile().training;
+        if (preferredTraining && preferredTraining !== 'rest') {
+            const label = preferredTraining === 'race' ? 'Súťažný režim' : preferredTraining === 'strength' ? 'Silový režim' : 'Vytrvalostný režim';
+            return { type: preferredTraining, label, items: [] };
+        }
+        return { type: 'rest', label: 'Voľno', items: [] };
+    }
     const hasStrength = items.some(item => item.template === 'fitko' || item.intensityKey === 'strength');
     const hasRace = items.some(item => item.intensityKey === 'race' || item.template === 'triathlon' || item.template === 'duathlon');
     const hasHigh = items.some(item => item.intensityKey === 'high' || Number(item.carbload) > 120);
@@ -204,6 +225,7 @@ function getTrainingContextForDate(date) {
 
 function getMacroTargetsForDate(date) {
     const weight = getAthleteWeight();
+    const bio = getNormalizedBioProfile();
     const context = getTrainingContextForDate(date);
     const carbloadBonusGrams = getCarbloadBonusForDate(date);
     const sugarTargetGrams = getSugarTargetForDate(date);
@@ -226,6 +248,25 @@ function getMacroTargetsForDate(date) {
         fat = Math.round(weight * 1.0);
     }
 
+    if (bio.goal === 'lose') {
+        carbs = Math.round(carbs * 0.88);
+        fat = Math.round(fat * 0.92);
+        protein = Math.round(Math.max(protein, weight * 2.0));
+    } else if (bio.goal === 'gain') {
+        carbs = Math.round(carbs * 1.12);
+        protein = Math.round(Math.max(protein, weight * 2.0));
+        fat = Math.round(fat * 1.05);
+    }
+
+    const baseSugarByContext = {
+        rest: 30,
+        endurance: 45,
+        strength: 40,
+        high: 60,
+        race: 80
+    };
+    const sugar = Math.max(sugarTargetGrams, baseSugarByContext[context.type] || 40);
+
     const macroKcal = (protein * 4) + (carbs * 4) + (fat * 9);
     const baseKcal = getDailyKcalTarget(date) + (carbloadBonusGrams * KCAL_PER_GRAM_CARB);
 
@@ -234,7 +275,7 @@ function getMacroTargetsForDate(date) {
         p: protein,
         c: carbs,
         f: fat,
-        sugar: sugarTargetGrams,
+        sugar,
         fiber: Math.max(20, Math.round(weight * 0.35)),
         metabolism,
         context
@@ -516,6 +557,9 @@ function initDashboard() {
 
     if (typeof updateSportsDashboardSummary === "function") {
         updateSportsDashboardSummary();
+    }
+    if (typeof renderSportHistoryGraphs === 'function') {
+        renderSportHistoryGraphs();
     }
 }
 
