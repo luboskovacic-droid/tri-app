@@ -68,6 +68,7 @@
         .food-action-primary{background:#2b6cb0;color:#fff}
         .food-action-calm{background:#edf2f7;color:#2d3748;border:1px solid #cbd5e1}
         .food-mini-note{font-size:12px;color:#718096;margin-top:6px}
+        .food-date-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
         .food-modal-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}
         .food-modal-head h3{margin:0}
         .food-close-btn{width:auto;background:#edf2f7;color:#2d3748;border:1px solid #cbd5e1}
@@ -134,6 +135,7 @@
             .hydration-ring{margin:auto}
             .water-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
             .food-command-grid{grid-template-columns:1fr}
+            .food-date-row{grid-template-columns:1fr}
             .profile-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
             .performance-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
             .dashboard-grid,.dashboard-actions{grid-template-columns:1fr}
@@ -293,7 +295,10 @@
     <div id="view-food" class="view">
         <h2>🍽️ Strava</h2>
         <div class="card">
-            <input type="date" id="food-date-picker">
+            <div class="food-date-row">
+                <input type="date" id="food-date-picker">
+                <button type="button" id="btn-refresh-food-view" class="preset-btn" style="background:#2d3748;color:#fff;">Obnoviť</button>
+            </div>
             <div class="food-mini-note">Najprv splň vodu, potom jedlo. Detaily sú schované v modal oknách.</div>
         </div>
 

@@ -1223,6 +1223,15 @@ function addCoachMealPlanToDay(mealIndex = null, date = AppState.selectedDate) {
     renderCoachMealPlan(date);
 }
 
+function refreshFoodView(date = AppState.selectedDate) {
+    if (typeof initDashboard === 'function') initDashboard();
+    loadFoodDay();
+    renderFoodDayMetrics(date);
+    renderCoachMealPlan(date);
+    renderFoodPresets();
+    renderPresetEditor();
+}
+
 function editLoggedFoodItem(date, itemId) {
     const allData = Storage.get(STORAGE_KEYS.FOOD);
     const item = (allData[date] || []).find(food => (food.id || food.createdAt) === itemId);
@@ -1558,12 +1567,18 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!btn) return;
         deleteWaterEntry(AppState.selectedDate, btn.dataset.waterDelete);
     });
+    document.getElementById('btn-refresh-food-view')?.addEventListener('click', () => refreshFoodView());
+
+    window.addEventListener('focus', () => {
+        if (document.getElementById('view-food')?.classList.contains('active')) refreshFoodView();
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && document.getElementById('view-food')?.classList.contains('active')) refreshFoodView();
+    });
 
     renderCoachMealPlan();
 });
 
 window.addEventListener('storage', () => {
-    renderFoodPresets();
-    renderPresetEditor();
-    renderFoodDayMetrics();
+    refreshFoodView();
 });
