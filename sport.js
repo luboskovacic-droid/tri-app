@@ -488,6 +488,11 @@ function renderPerformanceMetrics(date = getCurrentAppDate()) {
     set('atl-value', atl);
     set('ctl-value', ctl);
     set('tsb-value', tsb > 0 ? `+${tsb}` : `${tsb}`);
+    const statusEl = DOM.get('tsb-status');
+    if (statusEl) {
+        statusEl.textContent = tsb <= -25 ? 'vyčerpaný' : tsb < -10 ? 'unavený' : tsb <= 8 ? 'stabilný' : tsb <= 25 ? 'čerstvý' : 'až príliš čerstvý';
+        statusEl.style.color = tsb <= -25 ? '#e53e3e' : tsb < -10 ? '#ed8936' : tsb <= 8 ? '#718096' : '#2f855a';
+    }
 }
 
 function renderTopTrainingBar(date = getCurrentAppDate()) {
@@ -519,20 +524,36 @@ function loadHealthForDate(date = getCurrentAppDate()) {
         const el = DOM.get(id);
         if (el) el.value = value || '';
     };
+    const sleepMinutes = normalizeSleepMinutes(item.sleep);
     set('health-resthr', item.resthr);
-    set('health-sleep', item.sleep);
+    set('health-sleep-hours', sleepMinutes ? Math.floor(sleepMinutes / 60) : '');
+    set('health-sleep-minutes', sleepMinutes ? sleepMinutes % 60 : '');
     set('health-hrv', item.hrv);
 }
 
 function saveHealthForDate(date = getCurrentAppDate()) {
     const all = getHealthLog();
+    const sleepHours = Number(DOM.get('health-sleep-hours')?.value) || 0;
+    const sleepMinutes = Number(DOM.get('health-sleep-minutes')?.value) || 0;
     all[date] = {
         resthr: Number(DOM.get('health-resthr')?.value) || 0,
-        sleep: Number(DOM.get('health-sleep')?.value) || 0,
+        sleep: Math.max(0, Math.round((sleepHours * 60) + sleepMinutes)),
         hrv: Number(DOM.get('health-hrv')?.value) || 0,
         savedAt: new Date().toISOString()
     };
     localStorage.setItem(STORAGE_KEYS.HEALTH, JSON.stringify(all));
+}
+
+function normalizeSleepMinutes(value) {
+    const raw = Number(value) || 0;
+    return raw > 0 && raw <= 24 ? Math.round(raw * 60) : Math.round(raw);
+}
+
+function formatHoursMinutes(minutes) {
+    const safe = Math.max(0, Math.round(Number(minutes) || 0));
+    const h = Math.floor(safe / 60);
+    const m = safe % 60;
+    return `${h} hod ${String(m).padStart(2, '0')} min`;
 }
 
 const BASE_TARGETS = Object.freeze({ kcal: 2000, p: 150, c: 200, f: 65 });
@@ -622,6 +643,10 @@ function switchTab(viewId, btn) {
 
     if (viewId === 'home') initDashboard();
     if (viewId === 'food' && typeof renderFoodPresets === 'function') renderFoodPresets();
+    if (viewId === 'gym') {
+        if (typeof renderGymExercises === 'function') renderGymExercises();
+        if (typeof renderGymWorkouts === 'function') renderGymWorkouts();
+    }
 }
 
 // ==========================================

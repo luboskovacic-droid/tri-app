@@ -68,6 +68,15 @@
         .performance-grid span{font-size:11px;color:#718096}
         .inline-help-btn{width:28px;height:28px;padding:0;border-radius:999px;background:#edf2f7;color:#2d3748;border:1px solid #cbd5e1;box-shadow:none}
         .inline-help{display:none;margin-top:8px;font-size:12px;color:#4a5568;background:#f7fafc;border-left:4px solid #3182ce;padding:8px;border-radius:6px}
+        .coach-plan{display:grid;gap:8px}
+        .coach-meal{border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:8px}
+        .coach-meal strong{display:block;font-size:13px}
+        .coach-meal span{display:block;font-size:11px;color:#718096;margin-top:2px}
+        .coach-meal ul{margin:6px 0 0 16px;padding:0;font-size:12px;color:#2d3748}
+        .gym-exercise-row{display:grid;grid-template-columns:1.2fr .8fr .7fr .7fr .8fr auto;gap:6px;align-items:center;margin-top:6px}
+        .gym-workout-item{border:1px solid #e2e8f0;border-left:4px solid #3182ce;border-radius:8px;background:#fff;padding:8px;margin-top:6px}
+        .gym-workout-item strong{display:block}
+        .gym-workout-item span{display:block;font-size:12px;color:#4a5568}
         svg{display:block}
         /* Sport zone responsive styles */
         .zone-grid{display:grid;grid-template-columns:repeat(5,minmax(76px,1fr));gap:6px;text-align:center;overflow-x:auto;padding-bottom:4px}
@@ -92,6 +101,7 @@
             .hydration-grid span{font-size:10px}
             .profile-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
             .performance-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+            .gym-exercise-row{grid-template-columns:1fr 1fr}
         }
         @media (max-width: 360px){
             .macro-rings,.hydration-grid,.metric-grid-4{grid-template-columns:1fr}
@@ -176,7 +186,7 @@
             <div class="performance-grid">
                 <div><b id="atl-value">0</b><span>ATL 7 dní</span></div>
                 <div><b id="ctl-value">0</b><span>CTL 42 dní</span></div>
-                <div><b id="tsb-value">0</b><span>TSB</span></div>
+                <div><b id="tsb-value">0</b><span id="tsb-status">TSB</span></div>
             </div>
             <div id="form-help" class="inline-help">ATL je krátkodobá únava za 7 dní. CTL je kondícia za 42 dní. TSB = CTL - ATL: plus znamená čerstvosť, mínus znamená únavu pred ladením formy.</div>
         </div>
@@ -185,7 +195,8 @@
             <h3>❤️ Zdravotný denník</h3>
             <div class="grid-3">
                 <input type="number" id="health-resthr" placeholder="Tep ráno" min="30">
-                <input type="number" id="health-sleep" placeholder="Spánok h" min="0" step="0.1">
+                <input type="number" id="health-sleep-hours" placeholder="Spánok hod" min="0" max="24">
+                <input type="number" id="health-sleep-minutes" placeholder="Spánok min" min="0" max="59">
                 <input type="number" id="health-hrv" placeholder="HRV ms" min="0">
             </div>
             <button type="button" id="btn-save-health" class="preset-btn" style="background:#2d3748;color:#fff;">Uložiť denník</button>
@@ -230,6 +241,16 @@
                 <div><b id="magnesium-total">0mg</b><span>magnézium</span></div>
                 <div><b id="potassium-total">0mg</b><span>draslík</span></div>
             </div>
+        </div>
+
+        <div class="card">
+            <h3>🧠 AI tréner jedla</h3>
+            <div style="font-size:12px;color:#718096;margin-bottom:8px;">Poskladá normálne jedlá na celý deň podľa tréningu, carbloadu, cukrov, soli, vlákniny a tuku.</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <button type="button" id="btn-build-coach-plan">Poskladať deň</button>
+                <button type="button" id="btn-add-coach-plan" class="preset-btn" style="background:#2d3748;color:#fff;">Zapísať celý deň</button>
+            </div>
+            <div id="coach-meal-plan" class="coach-plan" style="margin-top:8px;"></div>
         </div>
 
         <div class="card">
@@ -420,6 +441,53 @@
             <div id="after-session-result" class="info-box" style="display:none;background:#f0fff4;border-left-color:#48bb78;"></div>
         </div>
     </div>
+
+    <!-- VIEW 4: FITKO -->
+    <div id="view-gym" class="view">
+        <h2>🏋️ Fitko</h2>
+        <div class="card">
+            <input type="date" id="gym-date-picker">
+        </div>
+        <div class="card" style="border-left:4px solid var(--sports);">
+            <h3>Plán silového tréningu</h3>
+            <select id="gym-plan-type">
+                <option value="leg">Dnes leg day</option>
+                <option value="core">Zajtra core</option>
+                <option value="posterior">Zadný reťazec</option>
+                <option value="upper">Vrchná časť / plávanie</option>
+                <option value="mobility">Mobilita a stabilita</option>
+                <option value="full">Full body triathlon</option>
+            </select>
+            <div class="grid-3">
+                <input type="number" id="gym-plan-days-offset" value="0" min="0" max="14" placeholder="O koľko dní">
+                <input type="number" id="gym-plan-rpe" value="7" min="1" max="10" placeholder="RPE">
+                <input type="number" id="gym-plan-min" value="55" min="20" placeholder="Min">
+            </div>
+            <button type="button" id="btn-add-gym-plan" class="btn-sports">Pridať cviky do dňa</button>
+        </div>
+        <div class="card">
+            <h3>Naplánované fitko</h3>
+            <div id="gym-workout-list"></div>
+        </div>
+        <div class="card">
+            <h3>Databáza cvikov pre triathlon</h3>
+            <div class="gym-exercise-row">
+                <input type="text" id="gym-ex-name" placeholder="Cvik">
+                <select id="gym-ex-group">
+                    <option value="leg">Leg</option>
+                    <option value="core">Core</option>
+                    <option value="posterior">Zadný reťazec</option>
+                    <option value="upper">Vrch/plávanie</option>
+                    <option value="mobility">Mobilita</option>
+                </select>
+                <input type="text" id="gym-ex-sets" placeholder="Série">
+                <input type="text" id="gym-ex-reps" placeholder="Opak.">
+                <input type="text" id="gym-ex-note" placeholder="Poznámka">
+                <button type="button" id="btn-save-gym-exercise">Uložiť</button>
+            </div>
+            <div id="gym-exercise-list" style="margin-top:10px;"></div>
+        </div>
+    </div>
     <!-- BOTTOM NAVIGÁCIA OPTIMALIZOVANÁ PRE IPHONE SE / FACE ID -->
     <div class="nav-bar">
         <button type="button" class="tab-btn active" id="tab-home">
@@ -433,6 +501,10 @@
         <button type="button" class="tab-btn" id="tab-sports">
             <span class="nav-icon">⚡</span>
             <span class="nav-text">Šport</span>
+        </button>
+        <button type="button" class="tab-btn" id="tab-gym">
+            <span class="nav-icon">🏋️</span>
+            <span class="nav-text">Fitko</span>
         </button>
     </div>
 
@@ -565,6 +637,7 @@
     <script src="sport.js"></script>
     <script src="food.js"></script>
     <script src="calendar-sport.js"></script>
+    <script src="gym.js"></script>
     <script src="app.js"></script>
 
     <script>
@@ -574,7 +647,8 @@
             const tabs = [
                 { id: 'home', btn: document.getElementById('tab-home') },
                 { id: 'food', btn: document.getElementById('tab-food') },
-                { id: 'sports', btn: document.getElementById('tab-sports') }
+                { id: 'sports', btn: document.getElementById('tab-sports') },
+                { id: 'gym', btn: document.getElementById('tab-gym') }
             ];
             tabs.forEach(tab => tab.btn?.addEventListener('click', () => switchTab(tab.id, tab.btn)));
 
@@ -788,7 +862,8 @@
                 const safeName = typeof escapeFoodHtml === 'function'
                     ? escapeFoodHtml(name)
                     : String(name).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                return `<div class="sport-history-card"><strong>${safeName}</strong><span>${Math.round(value.minutes / 60 * 10) / 10} h · ${value.count}x · ${Math.round(value.kcal)} kcal</span><div style="height:8px;background:#e2e8f0;border-radius:99px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:#3182ce;"></div></div></div>`;
+                const durationText = typeof formatHoursMinutes === 'function' ? formatHoursMinutes(value.minutes) : `${Math.round(value.minutes / 60 * 10) / 10} h`;
+                return `<div class="sport-history-card"><strong>${safeName}</strong><span>${durationText} · ${value.count}x · ${Math.round(value.kcal)} kcal</span><div style="height:8px;background:#e2e8f0;border-radius:99px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:#3182ce;"></div></div></div>`;
             }).join('');
         }
 
