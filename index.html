@@ -61,6 +61,16 @@
         .water-custom{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:6px}
         .water-log{display:grid;gap:5px;margin-top:8px;font-size:12px}
         .water-log-item{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:6px 8px}
+        .food-command-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+        .food-action-btn{min-height:58px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;text-align:left}
+        .food-action-btn strong{font-size:15px}
+        .food-action-btn span{font-size:11px;opacity:.85}
+        .food-action-primary{background:#2b6cb0;color:#fff}
+        .food-action-calm{background:#edf2f7;color:#2d3748;border:1px solid #cbd5e1}
+        .food-mini-note{font-size:12px;color:#718096;margin-top:6px}
+        .food-modal-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}
+        .food-modal-head h3{margin:0}
+        .food-close-btn{width:auto;background:#edf2f7;color:#2d3748;border:1px solid #cbd5e1}
         .metric-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
         .meal-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
         .chart-container{width:100%;overflow:hidden}
@@ -112,6 +122,7 @@
             .hydration-focus{grid-template-columns:1fr}
             .hydration-ring{margin:auto}
             .water-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+            .food-command-grid{grid-template-columns:1fr}
             .profile-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
             .performance-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
             .gym-exercise-row{grid-template-columns:1fr 1fr}
@@ -240,9 +251,10 @@
 
     <!-- VIEW 2: KALENDÁR STRAVY -->
     <div id="view-food" class="view">
-        <h2>🍽️ Kalendár stravy</h2>
+        <h2>🍽️ Strava</h2>
         <div class="card">
             <input type="date" id="food-date-picker">
+            <div class="food-mini-note">Najprv splň vodu, potom jedlo. Detaily sú schované v modal oknách.</div>
         </div>
 
         <div class="card">
@@ -258,8 +270,25 @@
         </div>
 
         <div class="card">
-            <h3>⏱️ Časová os dňa</h3>
-            <div id="food-day-timeline" class="day-timeline"></div>
+            <h3>⚡ Rýchle akcie</h3>
+            <div class="food-command-grid">
+                <button type="button" id="btn-open-food-entry" class="food-action-btn food-action-primary">
+                    <strong>Pridať jedlo</strong>
+                    <span>Vyhľadať, gramy, uložiť</span>
+                </button>
+                <button type="button" id="btn-open-coach-modal" class="food-action-btn food-action-calm">
+                    <strong>Poskladať deň</strong>
+                    <span>AI jedlá bez sladkého chaosu</span>
+                </button>
+                <button type="button" id="btn-open-food-insights" class="food-action-btn food-action-calm">
+                    <strong>Plán a čas</strong>
+                    <span>Timeline, carbload, okná</span>
+                </button>
+                <button type="button" id="btn-edit-food-presets" class="food-action-btn food-action-calm">
+                    <strong>Databáza</strong>
+                    <span>Potraviny a makrá</span>
+                </button>
+            </div>
         </div>
 
         <div class="card">
@@ -295,18 +324,16 @@
         </div>
 
         <div class="card">
-            <h3>🧠 AI tréner jedla</h3>
-            <div style="font-size:12px;color:#718096;margin-bottom:8px;">Poskladá normálne jedlá na celý deň podľa tréningu, carbloadu, cukrov, soli, vlákniny a tuku.</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                <button type="button" id="btn-build-coach-plan">Poskladať deň</button>
-                <button type="button" id="btn-add-coach-plan" class="preset-btn" style="background:#2d3748;color:#fff;">Zapísať celý deň</button>
-            </div>
-            <div id="coach-meal-plan" class="coach-plan" style="margin-top:8px;"></div>
+            <h3>📝 Dnes zapísané</h3>
+            <div id="food-list"></div>
         </div>
 
-        <div class="card">
-            <h3>➕ Zapísať jedlo do dňa</h3>
-            <div style="font-size:12px;color:#718096;margin-bottom:8px;">Vyhľadaj jedlo, vyber z návrhov, zadaj gramy a zapíš ho do dňa. Nové jedlo sa po zápise uloží do databázy.</div>
+        <div id="food-entry-modal" class="modal" aria-hidden="true">
+            <div class="modal-card">
+                <div class="food-modal-head">
+                    <h3>Pridať jedlo</h3>
+                    <button type="button" id="btn-close-food-entry" class="food-close-btn">Zatvoriť</button>
+                </div>
             <form id="food-form" onsubmit="return false;">
                 <div class="food-suggest-wrap">
                     <input type="text" id="f-search" placeholder="Hľadať jedlo, napr. ryža">
@@ -357,17 +384,43 @@
                     <input type="number" id="f-potassium" placeholder="Draslík (mg)" min="0">
                     <input type="number" id="f-amino" placeholder="Aminokyseliny (g)" min="0" step="0.1">
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div style="display:grid;grid-template-columns:1fr;gap:8px;">
                     <button type="button" id="btn-add-food">Pridať do dňa</button>
-                    <button type="button" id="btn-edit-food-presets" class="preset-btn" style="background:#2d3748;color:#fff;">Upraviť databázu</button>
                 </div>
                 <div id="food-evaluation" class="info-box" style="display:none;background:#f0fff4;border-left-color:#48bb78;"></div>
             </form>
+            </div>
         </div>
-        
-        <div class="card">
-            <h3>📝 Zapísané potraviny podľa jedla</h3>
-            <div id="food-list"></div>
+
+        <div id="food-coach-modal" class="modal" aria-hidden="true">
+            <div class="modal-card">
+                <div class="food-modal-head">
+                    <h3>AI tréner jedla</h3>
+                    <button type="button" id="btn-close-coach-modal" class="food-close-btn">Zatvoriť</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <button type="button" id="btn-build-coach-plan">Prepočítať</button>
+                    <button type="button" id="btn-add-coach-plan" class="preset-btn" style="background:#2d3748;color:#fff;">Zapísať celý deň</button>
+                </div>
+                <div id="coach-meal-plan" class="coach-plan" style="margin-top:8px;"></div>
+            </div>
+        </div>
+
+        <div id="food-insights-modal" class="modal" aria-hidden="true">
+            <div class="modal-card">
+                <div class="food-modal-head">
+                    <h3>Plán a čas</h3>
+                    <button type="button" id="btn-close-food-insights" class="food-close-btn">Zatvoriť</button>
+                </div>
+                <div class="card" style="margin-top:0;">
+                    <h3>⏱️ Časová os dňa</h3>
+                    <div id="food-day-timeline" class="day-timeline"></div>
+                </div>
+                <div class="card">
+                    <h3>Carbload návrhy</h3>
+                    <div id="carbload-food-suggestions"></div>
+                </div>
+            </div>
         </div>
     </div>
 

@@ -571,6 +571,7 @@ function addFoodItem() {
             if (el) el.value = '';
         });
     }
+    document.getElementById('food-entry-modal')?.classList.remove('open');
 }
 
 function formatFoodTiming(value) {
@@ -1510,6 +1511,40 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!btn) return;
         addCoachMealPlanToDay(Number(btn.dataset.coachMealAdd));
     });
+
+    const openFoodModal = (id) => {
+        const modalEl = document.getElementById(id);
+        modalEl?.classList.add('open');
+    };
+    const closeFoodModal = (id) => document.getElementById(id)?.classList.remove('open');
+
+    document.getElementById('btn-open-food-entry')?.addEventListener('click', () => {
+        openFoodModal('food-entry-modal');
+        setTimeout(() => DOM.get('f-search')?.focus(), 50);
+    });
+    document.getElementById('btn-close-food-entry')?.addEventListener('click', () => closeFoodModal('food-entry-modal'));
+    document.getElementById('food-entry-modal')?.addEventListener('click', (event) => {
+        if (event.target.id === 'food-entry-modal') closeFoodModal('food-entry-modal');
+    });
+
+    document.getElementById('btn-open-coach-modal')?.addEventListener('click', () => {
+        renderCoachMealPlan();
+        openFoodModal('food-coach-modal');
+    });
+    document.getElementById('btn-close-coach-modal')?.addEventListener('click', () => closeFoodModal('food-coach-modal'));
+    document.getElementById('food-coach-modal')?.addEventListener('click', (event) => {
+        if (event.target.id === 'food-coach-modal') closeFoodModal('food-coach-modal');
+    });
+
+    document.getElementById('btn-open-food-insights')?.addEventListener('click', () => {
+        renderFoodDayMetrics();
+        openFoodModal('food-insights-modal');
+    });
+    document.getElementById('btn-close-food-insights')?.addEventListener('click', () => closeFoodModal('food-insights-modal'));
+    document.getElementById('food-insights-modal')?.addEventListener('click', (event) => {
+        if (event.target.id === 'food-insights-modal') closeFoodModal('food-insights-modal');
+    });
+
     document.querySelectorAll('button[data-water-quick]').forEach(btn => {
         btn.addEventListener('click', () => addWaterEntry(btn.dataset.waterQuick));
     });
