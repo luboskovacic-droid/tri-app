@@ -95,6 +95,12 @@
         .dashboard-analysis-item{border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:8px}
         .dashboard-analysis-item strong{display:block;font-size:13px}
         .dashboard-analysis-item span{display:block;font-size:12px;color:#4a5568;margin-top:2px}
+        .ai-hub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+        .ai-hub-output{display:grid;gap:8px;margin-top:10px}
+        .ai-hub-card{border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:9px}
+        .ai-hub-card strong{display:block;font-size:13px}
+        .ai-hub-card span,.ai-hub-card li{font-size:12px;color:#4a5568}
+        .ai-hub-card ul{margin:6px 0 0 18px;padding:0}
         .performance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;text-align:center}
         .performance-grid b{display:block;font-size:16px}
         .performance-grid span{font-size:11px;color:#718096}
@@ -145,6 +151,7 @@
             .profile-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
             .performance-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
             .dashboard-grid,.dashboard-actions{grid-template-columns:1fr}
+            .ai-hub-grid{grid-template-columns:1fr}
             .gym-exercise-row{grid-template-columns:1fr 1fr}
             .gym-season-stats{grid-template-columns:1fr}
         }
@@ -183,6 +190,7 @@
                 <div><b id="dash-readiness-state">-</b><span>forma</span></div>
             </div>
             <div class="dashboard-actions">
+                <button type="button" id="btn-open-ai-hub" class="preset-btn" style="background:#2b6cb0;color:#fff;">AI Hub</button>
                 <button type="button" id="btn-open-profile" class="preset-btn" style="background:#2d3748;color:#fff;">Profil</button>
                 <button type="button" id="btn-open-health-modal" class="preset-btn" style="background:#edf2f7;color:#2d3748;">Zdravie</button>
                 <button type="button" id="btn-open-health-import-modal" class="preset-btn" style="background:#edf2f7;color:#2d3748;">Import</button>
@@ -881,12 +889,36 @@
         </div>
     </div>
 
+    <div id="ai-hub-modal" class="modal" aria-hidden="true">
+        <div class="modal-card">
+            <div class="food-modal-head">
+                <h3>AI Hub</h3>
+                <button type="button" id="btn-close-ai-hub" class="food-close-btn">Zatvoriť</button>
+            </div>
+            <div class="ai-hub-grid">
+                <button type="button" class="food-action-btn food-action-primary" data-ai-action="now"><strong>Čo teraz</strong><span>3 kroky pre dnešok</span></button>
+                <button type="button" class="food-action-btn food-action-calm" data-ai-action="week"><strong>Týždeň</strong><span>7-dňový plán tréning/jedlo</span></button>
+                <button type="button" class="food-action-btn food-action-calm" data-ai-action="training"><strong>Tréning 8 týždňov</strong><span>Cieľový plán</span></button>
+                <button type="button" class="food-action-btn food-action-calm" data-ai-action="race"><strong>Race week</strong><span>Taper, carbload, deň D</span></button>
+                <button type="button" class="food-action-btn food-action-calm" data-ai-action="recovery"><strong>Regenerácia</strong><span>Semafor + deload</span></button>
+                <button type="button" class="food-action-btn food-action-calm" data-ai-action="trends"><strong>Trendy</strong><span>Vývoj a hmotnosť</span></button>
+                <button type="button" class="food-action-btn food-action-calm" data-ai-action="templates"><strong>Šablóny dňa</strong><span>Voľno, race, dlhý bike...</span></button>
+                <button type="button" class="food-action-btn food-action-calm" data-ai-action="review"><strong>Hodnotenie dňa</strong><span>Večerný feedback</span></button>
+                <button type="button" class="food-action-btn food-action-calm" data-ai-action="backup"><strong>Záloha</strong><span>Export dát</span></button>
+                <button type="button" class="food-action-btn food-action-calm" data-ai-action="restore"><strong>Obnova</strong><span>Import zálohy</span></button>
+                <button type="button" class="food-action-btn food-action-calm" data-ai-action="notifications"><strong>Upozornenia</strong><span>Voda, jedlo, tréning</span></button>
+            </div>
+            <div id="ai-hub-output" class="ai-hub-output"></div>
+        </div>
+    </div>
+
     <!-- LOGIKA A INICIALIZÁCIA MODULOV -->
     <script src="sport.js"></script>
     <script src="food.js"></script>
     <script src="calendar-sport.js"></script>
     <script src="health-import.js"></script>
     <script src="gym.js"></script>
+    <script src="ai-planner.js"></script>
     <script src="app.js"></script>
 
     <script>
