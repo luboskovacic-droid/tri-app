@@ -1,5 +1,6 @@
 const GYM_EXERCISE_STORAGE_KEY = 'tri_gym_exercises_v1';
 const GYM_WORKOUT_STORAGE_KEY = 'tri_gym_workouts_v1';
+const GYM_SEASON_STORAGE_KEY = 'tri_gym_season_v1';
 let editingGymExerciseId = null;
 
 const DEFAULT_GYM_EXERCISES = [
@@ -44,6 +45,46 @@ function saveGymWorkouts(workouts) {
     localStorage.setItem(GYM_WORKOUT_STORAGE_KEY, JSON.stringify(workouts));
 }
 
+const GYM_SEASON_SETTINGS = Object.freeze({
+    summer: {
+        label: 'Leto - udržiavacie',
+        short: 'udržiavanie',
+        note: 'Udržiavací režim: menej objemu, kvalitný pohyb, nič čo rozbije beh/bike/plávanie.',
+        rpe: 6,
+        minutes: 40,
+        limitBonus: -2,
+        titlePrefix: 'Leto udržiavacie',
+        exerciseNote: 'udržiavacie, čistá technika, nechaj rezervu'
+    },
+    winter: {
+        label: 'Zima - silovo-vytrvalostná bomba',
+        short: 'sila + vytrvalosť',
+        note: 'Zimný režim: vyšší objem, silová vytrvalosť, zadný reťazec, core a stabilita.',
+        rpe: 8,
+        minutes: 70,
+        limitBonus: 2,
+        titlePrefix: 'Zima bomba',
+        exerciseNote: 'silovo-vytrvalostná práca, kontrolovaný tlak'
+    }
+});
+
+function getGymSeason() {
+    const stored = localStorage.getItem(GYM_SEASON_STORAGE_KEY);
+    return GYM_SEASON_SETTINGS[stored] ? stored : 'summer';
+}
+
+function setGymSeason(value) {
+    const season = GYM_SEASON_SETTINGS[value] ? value : 'summer';
+    localStorage.setItem(GYM_SEASON_STORAGE_KEY, season);
+    renderGymSeasonPanel();
+    applyGymSeasonDefaults();
+    return season;
+}
+
+function getGymSeasonSettings() {
+    return GYM_SEASON_SETTINGS[getGymSeason()] || GYM_SEASON_SETTINGS.summer;
+}
+
 function getGymDate() {
     return document.getElementById('gym-date-picker')?.value || (typeof AppState !== 'undefined' ? AppState.selectedDate : new Date().toISOString().slice(0, 10));
 }
@@ -64,17 +105,25 @@ function getGymPlanGroups(type) {
 }
 
 function buildGymPlan(type, rpe = 7, minutes = 55) {
+    const season = getGymSeason();
+    const seasonSettings = getGymSeasonSettings();
     const groups = getGymPlanGroups(type);
     const exercises = getGymExercises();
-    const limit = type === 'full' ? 7 : type === 'mobility' ? 5 : 6;
+    const baseLimit = type === 'full' ? 7 : type === 'mobility' ? 5 : 6;
+    const limit = Math.max(3, baseLimit + seasonSettings.limitBonus);
     const selected = exercises
         .filter(exercise => groups.includes(exercise.group))
         .slice(0, limit)
-        .map(exercise => ({ ...exercise, rpe }));
+        .map(exercise => ({
+            ...exercise,
+            rpe,
+            note: `${exercise.note || ''}${exercise.note ? ' · ' : ''}${seasonSettings.exerciseNote}`
+        }));
     return {
         id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
         type,
-        title: getGymPlanTitle(type),
+        season,
+        title: `${seasonSettings.titlePrefix}: ${getGymPlanTitle(type)}`,
         rpe,
         minutes,
         exercises: selected,
@@ -107,6 +156,7 @@ function addGymPlanToCalendar() {
     if (picker) picker.value = targetDate;
     if (typeof AppState !== 'undefined') AppState.selectedDate = targetDate;
     renderGymWorkouts();
+    document.getElementById('gym-plan-modal')?.classList.remove('open');
 }
 
 function renderGymWorkouts(date = getGymDate()) {
@@ -122,7 +172,7 @@ function renderGymWorkouts(date = getGymDate()) {
             <div style="display:flex;justify-content:space-between;gap:8px;align-items:start;">
                 <div>
                     <strong>${escapeGymHtml(workout.title)}</strong>
-                    <span>${workout.minutes || 0} min · RPE ${workout.rpe || 7}</span>
+                    <span>${workout.minutes || 0} min · RPE ${workout.rpe || 7}${workout.season ? ` · ${escapeGymHtml(GYM_SEASON_SETTINGS[workout.season]?.short || workout.season)}` : ''}</span>
                 </div>
                 <button type="button" class="preset-btn" data-gym-delete="${workout.id}" style="width:auto;background:#e53e3e;color:#fff;">Zmazať</button>
             </div>
@@ -207,6 +257,11 @@ function initGym() {
         renderGymWorkouts(event.target.value);
     });
     document.getElementById('btn-add-gym-plan')?.addEventListener('click', addGymPlanToCalendar);
+    document.getElementById('gym-season-mode')?.addEventListener('change', event => setGymSeason(event.target.value));
+    document.getElementById('btn-gym-apply-season')?.addEventListener('click', applyGymSeasonDefaults);
+    document.getElementById('btn-gym-refresh')?.addEventListener('click', refreshGymView);
+    bindGymModal('btn-open-gym-plan', 'gym-plan-modal', 'btn-close-gym-plan', applyGymSeasonDefaults);
+    bindGymModal('btn-open-gym-db', 'gym-db-modal', 'btn-close-gym-db', renderGymExercises);
     document.getElementById('gym-plan-type')?.addEventListener('change', event => {
         const offset = document.getElementById('gym-plan-days-offset');
         if (offset && event.target.value === 'core') offset.value = 1;
@@ -229,8 +284,51 @@ function initGym() {
             renderGymWorkouts(date);
         });
     }
+    renderGymSeasonPanel();
+    applyGymSeasonDefaults();
     renderGymExercises();
     renderGymWorkouts();
+}
+
+function renderGymSeasonPanel() {
+    const season = getGymSeason();
+    const settings = getGymSeasonSettings();
+    const seasonInput = document.getElementById('gym-season-mode');
+    if (seasonInput && seasonInput.value !== season) seasonInput.value = season;
+    const set = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+    set('gym-season-title', settings.label);
+    set('gym-season-note', settings.note);
+    set('gym-season-rpe', settings.rpe);
+    set('gym-season-min', settings.minutes);
+    set('gym-season-focus', settings.short);
+}
+
+function applyGymSeasonDefaults() {
+    const settings = getGymSeasonSettings();
+    const rpe = document.getElementById('gym-plan-rpe');
+    const minutes = document.getElementById('gym-plan-min');
+    if (rpe) rpe.value = settings.rpe;
+    if (minutes) minutes.value = settings.minutes;
+}
+
+function refreshGymView() {
+    renderGymSeasonPanel();
+    renderGymExercises();
+    renderGymWorkouts();
+}
+
+function bindGymModal(openId, modalId, closeId, beforeOpen = null) {
+    document.getElementById(openId)?.addEventListener('click', () => {
+        if (typeof beforeOpen === 'function') beforeOpen();
+        document.getElementById(modalId)?.classList.add('open');
+    });
+    document.getElementById(closeId)?.addEventListener('click', () => document.getElementById(modalId)?.classList.remove('open'));
+    document.getElementById(modalId)?.addEventListener('click', event => {
+        if (event.target.id === modalId) event.target.classList.remove('open');
+    });
 }
 
 function escapeGymHtml(value) {
