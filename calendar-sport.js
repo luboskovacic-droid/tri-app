@@ -459,6 +459,7 @@ function addSportItem() {
     // Skrytie boxu predikcie
     const predictionBox = document.getElementById('carb-prediction-box');
     if (predictionBox) predictionBox.style.display = 'none';
+    document.getElementById('sport-plan-modal')?.classList.remove('open');
     console.groupEnd();
 }
 

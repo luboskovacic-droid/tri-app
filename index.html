@@ -426,14 +426,46 @@
 
     <!-- VIEW 3: TRÉNINGY A CARBLOAD -->
     <div id="view-sports" class="view">
-        <h2>⚡ Tréningy & Carbload</h2>
+        <h2>⚡ Šport</h2>
         
         <div class="card">
             <input type="date" id="sport-date-picker">
+            <div class="food-mini-note">Najprv naplánuj tréning. Po výkone zapíš realitu. Ostatné rieši appka.</div>
         </div>
-        
-        <div class="card" style="border-left: 4px solid var(--sports);">
-            <h3>⏱️ Plán tréningu / Súťaže</h3>
+
+        <div class="card">
+            <h3>⚡ Rýchle akcie</h3>
+            <div class="food-command-grid">
+                <button type="button" id="btn-open-sport-plan" class="food-action-btn food-action-primary">
+                    <strong>Naplánovať</strong>
+                    <span>Typ, čas, zóny, carbload</span>
+                </button>
+                <button type="button" id="btn-open-after-session" class="food-action-btn food-action-calm">
+                    <strong>Po výkone</strong>
+                    <span>Realita, regenerácia, TSS</span>
+                </button>
+                <button type="button" id="btn-open-sport-zones" class="food-action-btn food-action-calm">
+                    <strong>Tepové zóny</strong>
+                    <span>Rýchla kontrola pásiem</span>
+                </button>
+                <button type="button" id="btn-sport-refresh" class="food-action-btn food-action-calm">
+                    <strong>Prepočítať</strong>
+                    <span>Obnoviť šport a nástenku</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📋 Dnes naplánované</h3>
+            <div id="sport-list"></div>
+        </div>
+
+        <div id="sport-plan-modal" class="modal" aria-hidden="true">
+            <div class="modal-card">
+            <div class="food-modal-head">
+                <h3>Plán tréningu / súťaže</h3>
+                <button type="button" id="btn-close-sport-plan" class="food-close-btn">Zatvoriť</button>
+            </div>
             
             <label style="font-size:12px; color:#718096;">Typ aktivity (Predvoľba)</label>
             <select id="s-template">
@@ -516,15 +548,15 @@
             </div>
 
             <button type="button" id="btn-add-sport" class="btn-sports" style="margin-top:12px;">Uložiť do kalendára</button>
+            </div>
         </div>
 
-        <div class="card">
-            <h3>📋 Plánované aktivity</h3>
-            <div id="sport-list"></div>
-        </div>
-
-        <div class="card">
-            <h3>🏆 Sieň slávy / po výkone</h3>
+        <div id="after-session-modal" class="modal" aria-hidden="true">
+            <div class="modal-card">
+            <div class="food-modal-head">
+                <h3>Po výkone</h3>
+                <button type="button" id="btn-close-after-session" class="food-close-btn">Zatvoriť</button>
+            </div>
             <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
                 <input type="number" id="real-kcal" placeholder="Reálne kcal" min="0">
                 <input type="number" id="real-duration" placeholder="Trvanie min" min="0">
@@ -543,6 +575,17 @@
             </div>
             <button type="button" id="btn-after-session" class="btn-sports" style="margin-top:10px;">Prepočítať prvé hodiny</button>
             <div id="after-session-result" class="info-box" style="display:none;background:#f0fff4;border-left-color:#48bb78;"></div>
+            </div>
+        </div>
+
+        <div id="sport-zones-modal" class="modal" aria-hidden="true">
+            <div class="modal-card">
+                <div class="food-modal-head">
+                    <h3>Tepové zóny</h3>
+                    <button type="button" id="btn-close-sport-zones" class="food-close-btn">Zatvoriť</button>
+                </div>
+                <div id="sport-zone-guide-modal" class="zone-grid"></div>
+            </div>
         </div>
     </div>
 
