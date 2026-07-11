@@ -69,6 +69,12 @@ function attachAppInteractions() {
         }
     });
     bindModal('btn-open-sport-zones', 'sport-zones-modal', 'btn-close-sport-zones', renderSportZoneModal);
+    bindModal('btn-open-health-modal', 'health-modal', 'btn-close-health-modal', () => {
+        if (typeof loadHealthForDate === 'function') {
+            loadHealthForDate(typeof AppState !== 'undefined' ? AppState.selectedDate : undefined);
+        }
+    });
+    bindModal('btn-open-health-import-modal', 'health-import-modal', 'btn-close-health-import-modal');
 
     document.getElementById('btn-sport-refresh')?.addEventListener('click', () => {
         if (typeof safelyRefreshUI === 'function') safelyRefreshUI();

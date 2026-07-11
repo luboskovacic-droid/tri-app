@@ -341,6 +341,7 @@ function refreshAfterHealthImport() {
     if (typeof renderCoachMealPlan === 'function') renderCoachMealPlan();
     if (typeof renderSportHistoryGraphs === 'function') renderSportHistoryGraphs();
     if (typeof renderHeartZoneGuide === 'function') renderHeartZoneGuide();
+    if (typeof renderDashboardAnalysis === 'function') renderDashboardAnalysis();
 }
 
 function setupHealthImport() {
@@ -371,6 +372,7 @@ function setupHealthImport() {
             result.style.display = 'block';
         }
         refreshAfterHealthImport();
+        if (saved.saved) document.getElementById('health-import-modal')?.classList.remove('open');
     });
 }
 

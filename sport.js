@@ -542,6 +542,8 @@ function saveHealthForDate(date = getCurrentAppDate()) {
         savedAt: new Date().toISOString()
     };
     localStorage.setItem(STORAGE_KEYS.HEALTH, JSON.stringify(all));
+    document.getElementById('health-modal')?.classList.remove('open');
+    renderDashboardAnalysis(date);
 }
 
 function normalizeSleepMinutes(value) {
@@ -718,7 +720,95 @@ function initDashboard() {
     }
     renderPerformanceMetrics(date);
     renderTopTrainingBar(date);
+    renderDashboardAnalysis(date);
     loadHealthForDate(date);
+}
+
+function renderDashboardAnalysis(date = getCurrentAppDate()) {
+    const esc = (value) => String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    const set = (id, value) => {
+        const el = DOM.get(id);
+        if (el) el.textContent = value;
+    };
+    const setHtml = (id, value) => {
+        const el = DOM.get(id);
+        if (el) el.innerHTML = value;
+    };
+    const foodTotals = typeof getFoodTotalsForDate === 'function'
+        ? getFoodTotalsForDate(date)
+        : { kcal: 0, c: 0, p: 0, sugar: 0, water: 0 };
+    const targets = getMacroTargetsForDate(date);
+    const kcalRemaining = Math.round((targets.kcal || 0) - (foodTotals.kcal || 0));
+    const tomorrow = getDateOffset(date, 1);
+    const tomorrowSports = Storage.get(STORAGE_KEYS.SPORTS)[tomorrow] || [];
+    const tomorrowKcal = tomorrowSports.reduce((sum, item) => sum + (Number(item.kcalBurned) || 0), 0);
+    const tomorrowTss = tomorrowSports.reduce((sum, item) => {
+        const bd = item.breakDown || {};
+        return sum + (Number(item.tss) || (typeof calculateTssFromBreakdown === 'function' ? calculateTssFromBreakdown(bd, Number(item.duration) || 0) : 0));
+    }, 0);
+    const tomorrowRace = tomorrowSports.some(item => item.intensityKey === 'race' || ['triathlon', 'duathlon', 'aquathlon'].includes(item.template));
+    const health = getHealthLog()[date] || {};
+    const sleepMinutes = normalizeSleepMinutes(health.sleep);
+    const atl = rollingTssAverage(date, 7);
+    const ctl = rollingTssAverage(date, 42);
+    const tsb = ctl - atl;
+    const hydration = typeof getHydrationTargetsForDate === 'function' ? getHydrationTargetsForDate(date) : { min: 2000, max: 3000 };
+    const waterMl = Number(foodTotals.water) || 0;
+    const waterMissing = Math.max(0, hydration.min - waterMl);
+    const tomorrowLabel = tomorrowSports.length
+        ? `${tomorrowRace ? 'súťaž' : 'tréning'} ${tomorrowSports.length}x`
+        : 'voľno';
+    const readinessLabel = tsb < -15 ? 'únava' : tsb > 12 ? 'čerstvý' : 'stabilný';
+
+    let focusTitle = 'Dnes drž jednoduchý plán.';
+    let focusCopy = 'Splň vodu, jedlo a neprestreľ cukry. Zajtrajšok je pokojný.';
+    if (tomorrowRace) {
+        focusTitle = 'Zajtra je výkon. Dnes rieš energiu a pokoj.';
+        focusCopy = 'Skontroluj carbload, vodu, spánok a nedávaj zbytočné sladké skoky.';
+    } else if (tomorrowSports.length) {
+        focusTitle = 'Zajtra je tréning. Dnes priprav palivo.';
+        focusCopy = 'Doplň sacharidy podľa plánu, drž hydratáciu a sleduj únavu.';
+    } else if (tsb < -15) {
+        focusTitle = 'Forma hlási únavu. Dnes zjednoduš.';
+        focusCopy = 'Daj prioritu spánku, vode a normálnym jedlám bez impulzívneho cukru.';
+    }
+
+    set('dashboard-focus-title', focusTitle);
+    set('dashboard-focus-copy', focusCopy);
+    set('dash-kcal-state', kcalRemaining >= 0 ? `+${kcalRemaining}` : `${kcalRemaining}`);
+    set('dash-tomorrow-state', tomorrowLabel);
+    set('dash-readiness-state', readinessLabel);
+
+    const analysis = [
+        {
+            title: 'Zajtra',
+            body: tomorrowSports.length
+                ? `${tomorrowSports.map(item => item.title || 'Tréning').join(', ')} · ${Math.round(tomorrowKcal)} kcal · TSS ${Math.round(tomorrowTss)}`
+                : 'Voľno. Dnes stačí normálne jedlo, voda a regenerácia.'
+        },
+        {
+            title: 'Energia dnes',
+            body: `${Math.round(foodTotals.kcal || 0)} / ${Math.round(targets.kcal || 0)} kcal · S ${Math.round(foodTotals.c || 0)}/${targets.c}g · cukry ${Math.round(foodTotals.sugar || 0)}/${targets.sugar}g`
+        },
+        {
+            title: 'Hydratácia',
+            body: waterMissing > 0
+                ? `Chýba cca ${Math.round(waterMissing / 50) * 50} ml do minima.`
+                : `Minimum splnené: ${(waterMl / 1000).toFixed(1)} l.`
+        },
+        {
+            title: 'Forma',
+            body: `ATL ${atl} · CTL ${ctl} · TSB ${tsb > 0 ? '+' : ''}${tsb}. ${sleepMinutes ? `Spánok ${formatHoursMinutes(sleepMinutes)}.` : 'Spánok dnes ešte nie je zapísaný.'}`
+        }
+    ];
+
+    setHtml('dashboard-analysis-list', analysis.map(item => (
+        `<div class="dashboard-analysis-item"><strong>${esc(item.title)}</strong><span>${esc(item.body)}</span></div>`
+    )).join(''));
 }
 
 // ==========================================

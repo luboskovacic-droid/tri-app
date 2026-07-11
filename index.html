@@ -83,6 +83,17 @@
         .sport-history-card strong{display:block;font-size:13px}
         .sport-history-card span{display:block;font-size:11px;color:#718096}
         .top-training-bar{position:sticky;top:0;z-index:10;margin:-4px -4px 8px;padding:8px 10px;border:1px solid #bee3f8;border-radius:8px;background:#ebf8ff;color:#2c5282;font-size:12px;font-weight:800}
+        .dashboard-focus{border-left:4px solid var(--sports);background:#f8fafc}
+        .dashboard-focus h3{margin:0;font-size:18px}
+        .dashboard-focus p{margin:6px 0 0;color:#4a5568;font-size:13px}
+        .dashboard-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;text-align:center;margin-top:10px}
+        .dashboard-grid b{display:block;font-size:17px;overflow-wrap:anywhere}
+        .dashboard-grid span{font-size:11px;color:#718096}
+        .dashboard-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+        .dashboard-analysis{display:grid;gap:8px}
+        .dashboard-analysis-item{border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:8px}
+        .dashboard-analysis-item strong{display:block;font-size:13px}
+        .dashboard-analysis-item span{display:block;font-size:12px;color:#4a5568;margin-top:2px}
         .performance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;text-align:center}
         .performance-grid b{display:block;font-size:16px}
         .performance-grid span{font-size:11px;color:#718096}
@@ -125,6 +136,7 @@
             .food-command-grid{grid-template-columns:1fr}
             .profile-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
             .performance-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+            .dashboard-grid,.dashboard-actions{grid-template-columns:1fr}
             .gym-exercise-row{grid-template-columns:1fr 1fr}
         }
         @media (max-width: 360px){
@@ -149,14 +161,32 @@
     <div id="view-home" class="view active">
         <div id="top-training-bar" class="top-training-bar">Zajtra: načítavam...</div>
         <div class="header">
-            <h2>📅 Dnes</h2>
+            <h2>📊 Nástenka</h2>
             <span id="date"></span>
         </div>
-        <div class="card" id="profile-card" style="margin-top:8px;">
-            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
-                <h3 style="margin:0;">👤 Profil</h3>
-                <button type="button" id="btn-open-profile" class="preset-btn" style="width:auto;background:#2d3748;color:#fff;">Upraviť</button>
+
+        <div class="card dashboard-focus">
+            <h3 id="dashboard-focus-title">Načítavam stav...</h3>
+            <p id="dashboard-focus-copy">Dám dokopy dnešnú energiu, zajtrajší tréning a formu.</p>
+            <div class="dashboard-grid">
+                <div><b id="dash-kcal-state">0</b><span>kcal stav</span></div>
+                <div><b id="dash-tomorrow-state">-</b><span>zajtra</span></div>
+                <div><b id="dash-readiness-state">-</b><span>forma</span></div>
             </div>
+            <div class="dashboard-actions">
+                <button type="button" id="btn-open-profile" class="preset-btn" style="background:#2d3748;color:#fff;">Profil</button>
+                <button type="button" id="btn-open-health-modal" class="preset-btn" style="background:#edf2f7;color:#2d3748;">Zdravie</button>
+                <button type="button" id="btn-open-health-import-modal" class="preset-btn" style="background:#edf2f7;color:#2d3748;">Import</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Čo riešiť teraz</h3>
+            <div id="dashboard-analysis-list" class="dashboard-analysis"></div>
+        </div>
+
+        <div class="card">
+            <h3>Metabolizmus a profil</h3>
             <div id="profile-summary" class="profile-summary-grid" style="margin-top:10px;">
                 <div><b id="bio-summary-year">-</b><br><span>Rok nar.</span></div>
                 <div><b id="bio-summary-weight">0</b><br><span>kg</span></div>
@@ -215,8 +245,12 @@
             <div id="form-help" class="inline-help">ATL je krátkodobá únava za 7 dní. CTL je kondícia za 42 dní. TSB = CTL - ATL: plus znamená čerstvosť, mínus znamená únavu pred ladením formy.</div>
         </div>
 
-        <div class="card">
-            <h3>❤️ Zdravotný denník</h3>
+        <div id="health-modal" class="modal" aria-hidden="true">
+            <div class="modal-card">
+            <div class="food-modal-head">
+                <h3>Zdravotný denník</h3>
+                <button type="button" id="btn-close-health-modal" class="food-close-btn">Zatvoriť</button>
+            </div>
             <div class="grid-3">
                 <input type="number" id="health-resthr" placeholder="Tep ráno" min="30">
                 <input type="number" id="health-sleep-hours" placeholder="Spánok hod" min="0" max="24">
@@ -224,10 +258,15 @@
                 <input type="number" id="health-hrv" placeholder="HRV ms" min="0">
             </div>
             <button type="button" id="btn-save-health" class="preset-btn" style="background:#2d3748;color:#fff;">Uložiť denník</button>
+            </div>
         </div>
 
-        <div class="card">
-            <h3>🔄 Import Garmin / Apple / Huawei</h3>
+        <div id="health-import-modal" class="modal" aria-hidden="true">
+            <div class="modal-card">
+            <div class="food-modal-head">
+                <h3>Import Garmin / Apple / Huawei</h3>
+                <button type="button" id="btn-close-health-import-modal" class="food-close-btn">Zatvoriť</button>
+            </div>
             <select id="health-import-source">
                 <option value="auto">Automaticky rozpoznať</option>
                 <option value="garmin">Garmin Connect</option>
@@ -240,6 +279,7 @@
                 <button type="button" id="btn-save-health-import" class="preset-btn" style="background:#2d3748;color:#fff;">Importovať</button>
             </div>
             <div id="health-import-result" class="info-box" style="display:none;background:#ebf8ff;border-left-color:#3182ce;margin-top:8px;"></div>
+            </div>
         </div>
 
         <div class="card landscape-only">
@@ -847,7 +887,8 @@
                 if (typeof initDashboard === 'function') initDashboard();
                 renderMetabolismPanel();
                 renderHeartZoneGuide();
-                renderSportHistoryGraphs();
+                    renderSportHistoryGraphs();
+                if (typeof renderDashboardAnalysis === 'function') renderDashboardAnalysis();
                     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
                         window.dispatchEvent(new Event('storage'));
                     }
