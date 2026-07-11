@@ -51,6 +51,16 @@
         .hydration-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
         .hydration-grid b{display:block;font-size:15px;overflow-wrap:anywhere}
         .hydration-grid span{font-size:11px;color:#718096}
+        .hydration-focus{display:grid;grid-template-columns:132px 1fr;gap:12px;align-items:center}
+        .hydration-ring{width:124px;height:124px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:conic-gradient(#3182ce 0deg,#e2e8f0 0deg)}
+        .hydration-ring-inner{width:88px;height:88px;border-radius:999px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+        .hydration-ring-inner strong{font-size:18px}
+        .hydration-ring-inner span{font-size:11px;color:#718096}
+        .water-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}
+        .water-actions button{min-height:40px}
+        .water-custom{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:6px}
+        .water-log{display:grid;gap:5px;margin-top:8px;font-size:12px}
+        .water-log-item{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:6px 8px}
         .metric-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
         .meal-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
         .chart-container{width:100%;overflow:hidden}
@@ -99,6 +109,9 @@
             .hydration-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
             .hydration-grid b{font-size:13px}
             .hydration-grid span{font-size:10px}
+            .hydration-focus{grid-template-columns:1fr}
+            .hydration-ring{margin:auto}
+            .water-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
             .profile-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
             .performance-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
             .gym-exercise-row{grid-template-columns:1fr 1fr}
@@ -251,6 +264,28 @@
 
         <div class="card">
             <h3>💧 Hydratácia a minerály</h3>
+            <div class="hydration-focus">
+                <div class="hydration-ring" id="hydration-ring">
+                    <div class="hydration-ring-inner">
+                        <strong id="hydration-ring-text">0%</strong>
+                        <span id="hydration-ring-subtext">0.0 l</span>
+                    </div>
+                </div>
+                <div>
+                    <div id="hydration-status" style="font-size:13px;font-weight:800;color:#2d3748;">Doplň vodu priebežne.</div>
+                    <div id="hydration-next-step" style="font-size:12px;color:#718096;margin-top:3px;">Najprv pohár, potom rieš detaily.</div>
+                    <div class="water-actions">
+                        <button type="button" class="preset-btn" data-water-quick="250" style="background:#ebf8ff;color:#2b6cb0;">+250 ml</button>
+                        <button type="button" class="preset-btn" data-water-quick="500" style="background:#ebf8ff;color:#2b6cb0;">+500 ml</button>
+                        <button type="button" class="preset-btn" data-water-quick="750" style="background:#ebf8ff;color:#2b6cb0;">+750 ml</button>
+                    </div>
+                    <div class="water-custom">
+                        <input type="number" id="water-custom-ml" placeholder="Vlastné ml" min="0">
+                        <button type="button" id="btn-add-water-custom" class="preset-btn" style="background:#2d3748;color:#fff;">Pridať</button>
+                    </div>
+                    <div id="water-log-list" class="water-log"></div>
+                </div>
+            </div>
             <div class="hydration-grid">
                 <div><b id="hydration-target">0 / 0-0 l</b><span>voda / min-max</span></div>
                 <div><b id="salt-total">0g</b><span>soľ</span></div>

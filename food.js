@@ -1,4 +1,5 @@
 const FOOD_PRESET_STORAGE_KEY = 'tri_food_presets_v1';
+const WATER_LOG_STORAGE_KEY = 'pwa_water_log';
 const MEAL_ORDER = ['Raňajky', 'Desiata', 'Obed', 'Olovrant', 'Večera', 'Druhá večera', 'Nezaradené'];
 let editingFoodRef = null;
 
@@ -580,7 +581,7 @@ function formatFoodTiming(value) {
 }
 
 function getFoodTotalsForDate(date) {
-    return (Storage.get(STORAGE_KEYS.FOOD)[date] || []).reduce((acc, item) => {
+    const totals = (Storage.get(STORAGE_KEYS.FOOD)[date] || []).reduce((acc, item) => {
         acc.kcal += calculateFoodKcalFromMacros(item);
         acc.p += Number(item.p) || 0;
         acc.c += Number(item.c) || 0;
@@ -594,6 +595,8 @@ function getFoodTotalsForDate(date) {
         acc.amino += Number(item.amino) || 0;
         return acc;
     }, { kcal: 0, p: 0, c: 0, sugar: 0, f: 0, fiber: 0, water: 0, salt: 0, magnesium: 0, potassium: 0, amino: 0 });
+    totals.water += getWaterTotalForDate(date);
+    return totals;
 }
 
 function setFoodRing(id, textId, current, target) {
@@ -641,6 +644,106 @@ function renderHydrationMetrics(date, totals = getFoodTotalsForDate(date)) {
     if (saltEl) saltEl.textContent = `${totals.salt.toFixed(1)}g`;
     if (magnesiumEl) magnesiumEl.textContent = `${Math.round(totals.magnesium)}mg`;
     if (potassiumEl) potassiumEl.textContent = `${Math.round(totals.potassium)}mg`;
+    renderWaterPanel(date, totals.water, target);
+}
+
+function getWaterLog() {
+    try {
+        return JSON.parse(localStorage.getItem(WATER_LOG_STORAGE_KEY)) || {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveWaterLog(log) {
+    localStorage.setItem(WATER_LOG_STORAGE_KEY, JSON.stringify(log));
+}
+
+function getWaterEntriesForDate(date = AppState.selectedDate) {
+    const items = getWaterLog()[date] || [];
+    return Array.isArray(items) ? items : [];
+}
+
+function getWaterTotalForDate(date = AppState.selectedDate) {
+    return getWaterEntriesForDate(date).reduce((sum, item) => sum + (Number(item.ml) || 0), 0);
+}
+
+function addWaterEntry(ml, date = AppState.selectedDate) {
+    const amount = Math.max(0, Math.round(Number(ml) || 0));
+    if (!amount) return;
+    const log = getWaterLog();
+    log[date] = log[date] || [];
+    log[date].push({
+        id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+        ml: amount,
+        time: new Date().toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' }),
+        createdAt: new Date().toISOString()
+    });
+    saveWaterLog(log);
+    initDashboard();
+    renderFoodDayMetrics(date);
+}
+
+function deleteWaterEntry(date, id) {
+    const log = getWaterLog();
+    if (!Array.isArray(log[date])) return;
+    log[date] = log[date].filter(item => item.id !== id);
+    if (!log[date].length) delete log[date];
+    saveWaterLog(log);
+    initDashboard();
+    renderFoodDayMetrics(date);
+}
+
+function renderWaterPanel(date, waterMl, target) {
+    const ring = DOM.get('hydration-ring');
+    const ringText = DOM.get('hydration-ring-text');
+    const ringSubtext = DOM.get('hydration-ring-subtext');
+    const status = DOM.get('hydration-status');
+    const nextStep = DOM.get('hydration-next-step');
+    const logList = DOM.get('water-log-list');
+    const min = Math.max(1, Number(target.min) || 2000);
+    const max = Math.max(min, Number(target.max) || min);
+    const pct = waterMl / min;
+    const degrees = Math.min(360, pct * 360);
+    let color = '#3182ce';
+    let label = 'Doplň vodu.';
+    let step = 'Daj si teraz 250-500 ml a nerieš to v hlave.';
+
+    if (pct >= 1 && waterMl <= max) {
+        color = '#10b981';
+        label = 'Hydratácia splnená.';
+        step = 'Drž už len malé dávky podľa smädu a tréningu.';
+    } else if (pct >= 0.75) {
+        color = '#38bdf8';
+        label = 'Už si blízko cieľa.';
+        step = `Chýba približne ${Math.max(0, Math.round((min - waterMl) / 50) * 50)} ml.`;
+    } else if (pct < 0.35) {
+        color = '#f97316';
+        label = 'Voda zaostáva.';
+        step = 'Najbližší krok: 500 ml, potom jedlo alebo tréning.';
+    }
+
+    if (waterMl > max) {
+        color = '#f59e0b';
+        label = 'Už si nad horným rozsahom.';
+        step = 'Ďalej už radšej po dúškoch, sleduj soľ a tréning.';
+    }
+
+    if (ring) ring.style.background = `conic-gradient(${color} ${degrees}deg,#e2e8f0 ${degrees}deg)`;
+    if (ringText) ringText.textContent = `${Math.round(Math.min(1.25, pct) * 100)}%`;
+    if (ringSubtext) ringSubtext.textContent = `${(waterMl / 1000).toFixed(1)} l`;
+    if (status) status.textContent = label;
+    if (nextStep) nextStep.textContent = step;
+
+    if (!logList) return;
+    const entries = getWaterEntriesForDate(date).slice().reverse();
+    if (!entries.length) {
+        logList.innerHTML = '<span style="color:#718096;">Zatiaľ bez samostatnej vody.</span>';
+        return;
+    }
+    logList.innerHTML = entries.map(item => (
+        `<div class="water-log-item"><span>${item.time || '--:--'} · ${item.ml} ml</span><button type="button" class="preset-btn" data-water-delete="${item.id}" style="background:#edf2f7;color:#2d3748;padding:4px 8px;">Zmazať</button></div>`
+    )).join('');
 }
 
 function renderCarbloadFoodSuggestions(date = AppState.selectedDate) {
@@ -1370,6 +1473,19 @@ window.addEventListener('DOMContentLoaded', () => {
         const btn = event.target.closest('button[data-coach-meal-add]');
         if (!btn) return;
         addCoachMealPlanToDay(Number(btn.dataset.coachMealAdd));
+    });
+    document.querySelectorAll('button[data-water-quick]').forEach(btn => {
+        btn.addEventListener('click', () => addWaterEntry(btn.dataset.waterQuick));
+    });
+    document.getElementById('btn-add-water-custom')?.addEventListener('click', () => {
+        const input = DOM.get('water-custom-ml');
+        addWaterEntry(input?.value);
+        if (input) input.value = '';
+    });
+    document.getElementById('water-log-list')?.addEventListener('click', (event) => {
+        const btn = event.target.closest('button[data-water-delete]');
+        if (!btn) return;
+        deleteWaterEntry(AppState.selectedDate, btn.dataset.waterDelete);
     });
 
     renderCoachMealPlan();
