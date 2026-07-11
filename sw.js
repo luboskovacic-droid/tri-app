@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kcal-sport-pwa-v22';
+const CACHE_NAME = 'kcal-sport-pwa-v23';
 
 const ASSETS = [
   './',
@@ -8,6 +8,7 @@ const ASSETS = [
   './food.js',
   './sport.js',
   './calendar-sport.js',
+  './health-import.js',
   './gym.js',
   './manifest.json',
   './icon-192.png',

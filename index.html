@@ -202,6 +202,22 @@
             <button type="button" id="btn-save-health" class="preset-btn" style="background:#2d3748;color:#fff;">Uložiť denník</button>
         </div>
 
+        <div class="card">
+            <h3>🔄 Import Garmin / Apple / Huawei</h3>
+            <select id="health-import-source">
+                <option value="auto">Automaticky rozpoznať</option>
+                <option value="garmin">Garmin Connect</option>
+                <option value="apple">Apple Health</option>
+                <option value="huawei">Huawei Health</option>
+            </select>
+            <textarea id="health-import-input" rows="7" placeholder="Vlož JSON, CSV alebo text exportu. Podporuje tep ráno, HRV, spánok, hmotnosť, výšku, tréningy, kcal, trvanie, zóny a záznamy stravy." style="width:100%;margin-top:8px;box-sizing:border-box;border:1px solid #e2e8f0;border-radius:6px;padding:8px;font:inherit;"></textarea>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+                <button type="button" id="btn-preview-health-import" class="preset-btn" style="background:#edf2f7;color:#2d3748;">Skontrolovať</button>
+                <button type="button" id="btn-save-health-import" class="preset-btn" style="background:#2d3748;color:#fff;">Importovať</button>
+            </div>
+            <div id="health-import-result" class="info-box" style="display:none;background:#ebf8ff;border-left-color:#3182ce;margin-top:8px;"></div>
+        </div>
+
         <div class="card landscape-only">
             <h3>📈 Športy za celé obdobie</h3>
             <div id="sport-history-graphs" class="sport-history-grid"></div>
@@ -637,6 +653,7 @@
     <script src="sport.js"></script>
     <script src="food.js"></script>
     <script src="calendar-sport.js"></script>
+    <script src="health-import.js"></script>
     <script src="gym.js"></script>
     <script src="app.js"></script>
 
