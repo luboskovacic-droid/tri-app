@@ -996,16 +996,16 @@ function getCoachPantryPresets() {
 function getCoachMealProfile(mealKey) {
     const profiles = {
         breakfast: {
-            carb: ['Ovsené vločky', 'Chlieb', 'Müsli', 'Quinoa'],
+            carb: ['Ovsené vločky', 'Chlieb', 'Quinoa', 'Zemiaky'],
             protein: ['Tvaroh', 'Jogurt natural', 'Vajcia', 'Mlieko'],
             fat: ['Vajcia', 'Avokádo', 'Arašidy'],
-            banned: ['Ryža', 'Kuracie prsia', 'Hovädzina', 'Tuniak', 'Kuskus', 'Celozrnné cestoviny']
+            banned: ['Ryža', 'Kuracie prsia', 'Hovädzina', 'Tuniak', 'Kuskus', 'Celozrnné cestoviny', 'Müsli']
         },
         snack1: {
-            carb: ['Jablko', 'Banán', 'Chlieb', 'Ovsené vločky'],
+            carb: ['Chlieb', 'Ovsené vločky', 'Zemiaky', 'Quinoa', 'Jablko', 'Banán'],
             protein: ['Jogurt natural', 'Tvaroh', 'Mlieko'],
             fat: ['Arašidy', 'Avokádo'],
-            banned: ['Ryža', 'Kuracie prsia', 'Hovädzina']
+            banned: ['Ryža', 'Kuracie prsia', 'Hovädzina', 'Müsli']
         },
         lunch: {
             carb: ['Ryža', 'Zemiaky', 'Kuskus', 'Quinoa', 'Celozrnné cestoviny', 'Těstoviny'],
@@ -1014,10 +1014,10 @@ function getCoachMealProfile(mealKey) {
             banned: ['Ovsené vločky', 'Müsli', 'Jogurt natural']
         },
         snack2: {
-            carb: ['Banán', 'Jablko', 'Chlieb', 'Zemiaky'],
+            carb: ['Zemiaky', 'Chlieb', 'Quinoa', 'Ovsené vločky', 'Jablko', 'Banán'],
             protein: ['Tvaroh', 'Jogurt natural', 'Vajcia', 'Tuniak'],
             fat: ['Arašidy', 'Avokádo'],
-            banned: ['Ryža', 'Kuracie prsia', 'Hovädzina']
+            banned: ['Ryža', 'Kuracie prsia', 'Hovädzina', 'Müsli']
         },
         dinner: {
             carb: ['Zemiaky', 'Quinoa', 'Celozrnné cestoviny', 'Kuskus', 'Ryža'],
@@ -1033,6 +1033,7 @@ function pickCoachPreset(presets, role, usedNames, contextType, mealKey) {
     const profile = getCoachMealProfile(mealKey);
     const names = profile[role] || [];
     const globallyUsed = new Set([...usedNames].map(value => String(value).split(':').pop()));
+    const isSnack = mealKey === 'snack1' || mealKey === 'snack2';
     const candidates = presets.filter(item => !globallyUsed.has(item.name)).filter(item => {
         if ((profile.banned || []).includes(item.name)) return false;
         const c = Number(item.c) || 0;
@@ -1041,7 +1042,7 @@ function pickCoachPreset(presets, role, usedNames, contextType, mealKey) {
         const sugarRatio = c > 0 ? (Number(item.sugar) || 0) / c : 0;
         const salt = Number(item.salt) || 0;
         if (salt > 0.8) return false;
-        if (role === 'carb') return c >= 10 && sugarRatio <= (contextType === 'race' ? 0.45 : 0.35) && f <= 9;
+        if (role === 'carb') return c >= 10 && sugarRatio <= (isSnack ? 0.28 : contextType === 'race' ? 0.35 : 0.30) && f <= 9;
         if (role === 'protein') return p >= 3 && f <= 18 && sugarRatio <= 0.75;
         return f >= 6 && sugarRatio <= 0.25;
     });
@@ -1063,13 +1064,51 @@ function clampCoachGrams(value, min, max) {
 
 function getCoachGramBounds(role, mealKey, carbPlan) {
     const bounds = {
-        breakfast: { carb: [40, 120], protein: [80, 220], fat: [15, 50] },
-        snack1: { carb: [50, 160], protein: [80, 180], fat: [10, 35] },
-        lunch: { carb: [90, carbPlan ? 360 : 280], protein: [90, 260], fat: [20, 80] },
-        snack2: { carb: [50, 180], protein: [70, 180], fat: [10, 35] },
-        dinner: { carb: [80, carbPlan ? 300 : 240], protein: [90, 260], fat: [20, 85] }
+        breakfast: { carb: [70, carbPlan ? 180 : 220], protein: [100, 260], fat: [20, 70] },
+        snack1: { carb: [60, 180], protein: [90, 190], fat: [10, 35] },
+        lunch: { carb: [130, carbPlan ? 420 : 380], protein: [120, 320], fat: [25, 95] },
+        snack2: { carb: [60, 190], protein: [80, 200], fat: [10, 35] },
+        dinner: { carb: [110, carbPlan ? 360 : 340], protein: [120, 320], fat: [25, 100] }
     };
     return (bounds[mealKey] && bounds[mealKey][role]) || [60, 240];
+}
+
+function shouldUseCoachSnacks(carbPlan) {
+    return Boolean(carbPlan && carbPlan.kind === 'prev' && Number(carbPlan.carbs) > 0);
+}
+
+function getCoachMealSplits(contextType, carbPlan) {
+    if (shouldUseCoachSnacks(carbPlan)) {
+        return [
+            { meal: 'Raňajky', key: 'breakfast', timing: 'normal', p: 0.20, c: 0.22, f: 0.18, note: 'stabilný štart carbloadu, nízky cukor' },
+            { meal: 'Desiata', key: 'snack1', timing: 'normal', p: 0.12, c: 0.18, f: 0.08, note: 'komplexné sacharidy, nie sladkosť' },
+            { meal: 'Obed', key: 'lunch', timing: 'normal', p: 0.30, c: 0.30, f: 0.28, note: 'hlavná porcia dňa pred výkonom' },
+            { meal: 'Olovrant', key: 'snack2', timing: 'normal', p: 0.12, c: 0.14, f: 0.08, note: 'doplnenie carbloadu bez cukrového úletu' },
+            { meal: 'Večera', key: 'dinner', timing: 'normal', p: 0.26, c: 0.16, f: 0.38, note: 'ľahšia regenerácia, bez prehnanej soli' }
+        ];
+    }
+
+    if (contextType === 'strength') {
+        return [
+            { meal: 'Raňajky', key: 'breakfast', timing: 'normal', p: 0.30, c: 0.25, f: 0.26, note: 'väčšia stabilná porcia bez sladkého zobkania' },
+            { meal: 'Obed', key: 'lunch', timing: 'preworkout', p: 0.38, c: 0.46, f: 0.34, note: 'hlavné jedlo okolo tréningu' },
+            { meal: 'Večera', key: 'dinner', timing: 'postworkout', p: 0.32, c: 0.29, f: 0.40, note: 'regenerácia po sile' }
+        ];
+    }
+
+    if (contextType === 'rest') {
+        return [
+            { meal: 'Raňajky', key: 'breakfast', timing: 'normal', p: 0.33, c: 0.30, f: 0.30, note: 'sýte raňajky, menej rýchlych cukrov' },
+            { meal: 'Obed', key: 'lunch', timing: 'normal', p: 0.38, c: 0.42, f: 0.36, note: 'hlavná porcia, nech netreba sladké' },
+            { meal: 'Večera', key: 'dinner', timing: 'normal', p: 0.29, c: 0.28, f: 0.34, note: 'ľahšia večera, stále dosť bielkovín' }
+        ];
+    }
+
+    return [
+        { meal: 'Raňajky', key: 'breakfast', timing: 'normal', p: 0.28, c: 0.30, f: 0.26, note: 'štart energie bez sladkého zobkania' },
+        { meal: 'Obed', key: 'lunch', timing: 'preworkout', p: 0.40, c: 0.45, f: 0.34, note: 'väčšie tréningové jedlo' },
+        { meal: 'Večera', key: 'dinner', timing: 'postworkout', p: 0.32, c: 0.25, f: 0.40, note: 'regenerácia a sýtosť' }
+    ];
 }
 
 function buildCoachMealPlan(date = AppState.selectedDate) {
@@ -1083,14 +1122,9 @@ function buildCoachMealPlan(date = AppState.selectedDate) {
     };
     const contextType = targets.context?.type || 'rest';
     const carbPlan = typeof buildCarbloadPlanForDate === 'function' ? buildCarbloadPlanForDate(date) : null;
-    const sugarCeiling = Math.max(18, Math.round((remaining.sugar || targets.sugar || 40) / (carbPlan ? 4 : 5)));
-    const splits = [
-        { meal: 'Raňajky', key: 'breakfast', timing: 'normal', p: 0.22, c: carbPlan?.kind === 'event' ? 0.28 : 0.24, f: 0.20, note: 'stabilný štart, nízky cukor' },
-        { meal: 'Desiata', key: 'snack1', timing: carbPlan?.kind === 'event' ? 'preworkout' : 'normal', p: 0.12, c: carbPlan?.kind === 'event' ? 0.22 : 0.12, f: 0.10, note: 'malá dávka sacharidov bez šoku' },
-        { meal: 'Obed', key: 'lunch', timing: 'normal', p: 0.30, c: 0.30, f: 0.28, note: 'hlavné teplé jedlo, nízka soľ' },
-        { meal: 'Olovrant', key: 'snack2', timing: carbPlan ? 'between' : 'normal', p: 0.12, c: 0.14, f: 0.10, note: 'dopĺňa energiu medzi jedlami' },
-        { meal: 'Večera', key: 'dinner', timing: contextType === 'strength' ? 'postworkout' : 'normal', p: 0.24, c: carbPlan?.kind === 'prev' ? 0.20 : 0.20, f: 0.32, note: 'regenerácia, bez prehnanej soli' }
-    ];
+    const splits = getCoachMealSplits(contextType, carbPlan);
+    const sugarCeiling = Math.max(12, Math.round((remaining.sugar || targets.sugar || 40) / splits.length));
+    const usesSnacks = shouldUseCoachSnacks(carbPlan);
     const presets = getCoachPantryPresets();
     const usedNames = new Set();
     const meals = splits.map(split => {
@@ -1098,7 +1132,7 @@ function buildCoachMealPlan(date = AppState.selectedDate) {
             p: Math.round(remaining.p * split.p),
             c: Math.round(remaining.c * split.c),
             f: Math.round(remaining.f * split.f),
-            sugarMax: sugarCeiling + (split.timing === 'preworkout' ? Math.round(sugarCeiling * 0.5) : 0)
+            sugarMax: sugarCeiling + (usesSnacks && split.key === 'snack1' ? Math.round(sugarCeiling * 0.25) : 0)
         };
         const foods = [];
         const carbPreset = pickCoachPreset(presets, 'carb', usedNames, contextType, split.key);
@@ -1138,7 +1172,9 @@ function buildCoachMealPlan(date = AppState.selectedDate) {
 
     return {
         date,
-        note: `${targets.context?.label || 'Deň'}: široký výber z databázy, raňajky nie sú obed, cukry sú rozložené a soľ držaná nízko.`,
+        note: usesSnacks
+            ? `${targets.context?.label || 'Deň'}: deň pred výkonom s carbloadom, preto pridávam desiatu a olovrant. Sacharidy sú komplexné, sladké držím nízko.`
+            : `${targets.context?.label || 'Deň'}: bez rozloženého carbloadu držím 3 väčšie jedlá, aby nevznikal priestor na sladké blbosti.`,
         meals
     };
 }
