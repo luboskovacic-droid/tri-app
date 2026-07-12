@@ -1,7 +1,17 @@
 const FOOD_PRESET_STORAGE_KEY = 'tri_food_presets_v1';
 const WATER_LOG_STORAGE_KEY = 'pwa_water_log';
+const SUPPLEMENT_LOG_STORAGE_KEY = 'pwa_supplement_log';
 const MEAL_ORDER = ['Raňajky', 'Desiata', 'Obed', 'Olovrant', 'Večera', 'Druhá večera', 'Nezaradené'];
 let editingFoodRef = null;
+
+const SUPPLEMENT_PRESETS = {
+    zinc: { label: 'Zinok', unit: 'mg', zinc: 15 },
+    magnesiumBis: { label: 'Mg bisglycinát', unit: 'mg', magnesium: 200, form: 'bisglycinát' },
+    magnesiumCitrate: { label: 'Mg citrát', unit: 'mg', magnesium: 200, form: 'citrát' },
+    potassium: { label: 'Draslík', unit: 'mg', potassium: 500 },
+    ashwagandha: { label: 'Ashwagandha', unit: 'mg', ashwagandha: 300 },
+    eaa: { label: 'AMK/EAA', unit: 'g', amino: 10 }
+};
 
 const DEFAULT_FOOD_PRESETS = [
     { name: 'Ovsené vločky', category: 'Karbóny', kcal: 389, p: 16.9, c: 66.3, sugar: 0.9, f: 6.9 },
@@ -595,8 +605,14 @@ function getFoodTotalsForDate(date) {
         acc.potassium += Number(item.potassium) || 0;
         acc.amino += Number(item.amino) || 0;
         return acc;
-    }, { kcal: 0, p: 0, c: 0, sugar: 0, f: 0, fiber: 0, water: 0, salt: 0, magnesium: 0, potassium: 0, amino: 0 });
+    }, { kcal: 0, p: 0, c: 0, sugar: 0, f: 0, fiber: 0, water: 0, salt: 0, magnesium: 0, potassium: 0, amino: 0, zinc: 0, ashwagandha: 0 });
     totals.water += getWaterTotalForDate(date);
+    const supplements = getSupplementTotalsForDate(date);
+    totals.magnesium += supplements.magnesium;
+    totals.potassium += supplements.potassium;
+    totals.amino += supplements.amino;
+    totals.zinc += supplements.zinc;
+    totals.ashwagandha += supplements.ashwagandha;
     return totals;
 }
 
@@ -641,11 +657,18 @@ function renderHydrationMetrics(date, totals = getFoodTotalsForDate(date)) {
     const saltEl = DOM.get('salt-total');
     const magnesiumEl = DOM.get('magnesium-total');
     const potassiumEl = DOM.get('potassium-total');
+    const zincEl = DOM.get('zinc-total');
+    const ashwagandhaEl = DOM.get('ashwagandha-total');
+    const aminoEl = DOM.get('amino-total');
     if (hydrationEl) hydrationEl.textContent = `${(totals.water / 1000).toFixed(1)} / ${(target.min / 1000).toFixed(1)}-${(target.max / 1000).toFixed(1)} l`;
     if (saltEl) saltEl.textContent = `${totals.salt.toFixed(1)}g`;
     if (magnesiumEl) magnesiumEl.textContent = `${Math.round(totals.magnesium)}mg`;
     if (potassiumEl) potassiumEl.textContent = `${Math.round(totals.potassium)}mg`;
+    if (zincEl) zincEl.textContent = `${Math.round(totals.zinc || 0)}mg`;
+    if (ashwagandhaEl) ashwagandhaEl.textContent = `${Math.round(totals.ashwagandha || 0)}mg`;
+    if (aminoEl) aminoEl.textContent = `${Number(totals.amino || 0).toFixed(1)}g`;
     renderWaterPanel(date, totals.water, target);
+    renderSupplementPanel(date);
 }
 
 function getWaterLog() {
@@ -693,6 +716,117 @@ function deleteWaterEntry(date, id) {
     saveWaterLog(log);
     initDashboard();
     renderFoodDayMetrics(date);
+}
+
+function getSupplementLog() {
+    try {
+        return JSON.parse(localStorage.getItem(SUPPLEMENT_LOG_STORAGE_KEY)) || {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveSupplementLog(log) {
+    localStorage.setItem(SUPPLEMENT_LOG_STORAGE_KEY, JSON.stringify(log));
+}
+
+function getSupplementEntriesForDate(date = AppState.selectedDate) {
+    const items = getSupplementLog()[date] || [];
+    return Array.isArray(items) ? items : [];
+}
+
+function normalizeSupplementEntry(entry) {
+    return {
+        id: entry.id || crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+        label: entry.label || 'Doplnok',
+        unit: entry.unit || 'mg',
+        magnesium: Math.max(0, Number(entry.magnesium) || 0),
+        potassium: Math.max(0, Number(entry.potassium) || 0),
+        zinc: Math.max(0, Number(entry.zinc) || 0),
+        ashwagandha: Math.max(0, Number(entry.ashwagandha) || 0),
+        amino: Math.max(0, Number(entry.amino) || 0),
+        form: entry.form || '',
+        time: entry.time || new Date().toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' }),
+        createdAt: entry.createdAt || new Date().toISOString()
+    };
+}
+
+function getSupplementTotalsForDate(date = AppState.selectedDate) {
+    return getSupplementEntriesForDate(date).reduce((acc, item) => {
+        acc.magnesium += Number(item.magnesium) || 0;
+        acc.potassium += Number(item.potassium) || 0;
+        acc.zinc += Number(item.zinc) || 0;
+        acc.ashwagandha += Number(item.ashwagandha) || 0;
+        acc.amino += Number(item.amino) || 0;
+        return acc;
+    }, { magnesium: 0, potassium: 0, zinc: 0, ashwagandha: 0, amino: 0 });
+}
+
+function addSupplementEntry(entry, date = AppState.selectedDate) {
+    const normalized = normalizeSupplementEntry(entry);
+    if (!normalized.magnesium && !normalized.potassium && !normalized.zinc && !normalized.ashwagandha && !normalized.amino) return;
+    const log = getSupplementLog();
+    log[date] = log[date] || [];
+    log[date].push(normalized);
+    saveSupplementLog(log);
+    initDashboard();
+    renderFoodDayMetrics(date);
+}
+
+function addSupplementPreset(key) {
+    const preset = SUPPLEMENT_PRESETS[key];
+    if (!preset) return;
+    addSupplementEntry(preset);
+}
+
+function addCustomSupplement() {
+    const type = DOM.get('supplement-custom-type')?.value || 'amino';
+    const amountInput = DOM.get('supplement-custom-amount');
+    const amount = Math.max(0, Number(amountInput?.value) || 0);
+    if (!amount) return;
+    const labels = {
+        amino: ['Ďalšie AMK', 'g'],
+        zinc: ['Zinok', 'mg'],
+        magnesium: ['Mg', 'mg'],
+        potassium: ['Draslík', 'mg'],
+        ashwagandha: ['Ashwagandha', 'mg']
+    };
+    const [label, unit] = labels[type] || labels.amino;
+    addSupplementEntry({ label, unit, [type]: amount });
+    if (amountInput) amountInput.value = '';
+}
+
+function deleteSupplementEntry(date, id) {
+    const log = getSupplementLog();
+    if (!Array.isArray(log[date])) return;
+    log[date] = log[date].filter(item => item.id !== id);
+    if (!log[date].length) delete log[date];
+    saveSupplementLog(log);
+    initDashboard();
+    renderFoodDayMetrics(date);
+}
+
+function formatSupplementEntry(item) {
+    const parts = [];
+    if (item.zinc) parts.push(`${Math.round(item.zinc)}mg Zn`);
+    if (item.magnesium) parts.push(`${Math.round(item.magnesium)}mg Mg${item.form ? ` ${item.form}` : ''}`);
+    if (item.potassium) parts.push(`${Math.round(item.potassium)}mg K`);
+    if (item.ashwagandha) parts.push(`${Math.round(item.ashwagandha)}mg ashwa`);
+    if (item.amino) parts.push(`${Number(item.amino).toFixed(1)}g AMK`);
+    return parts.join(' · ');
+}
+
+function renderSupplementPanel(date = AppState.selectedDate) {
+    const logList = DOM.get('supplement-log-list');
+    if (!logList) return;
+    const entries = getSupplementEntriesForDate(date).slice().reverse();
+    if (!entries.length) {
+        logList.innerHTML = '<span style="color:#718096;">Doplnky zatiaľ nezapísané.</span>';
+        return;
+    }
+    logList.innerHTML = entries.map(item => (
+        `<div class="supplement-log-item"><span>${escapeFoodHtml(item.time || '--:--')} · ${escapeFoodHtml(item.label || 'Doplnok')} · ${escapeFoodHtml(formatSupplementEntry(item))}</span><button type="button" class="preset-btn" data-supplement-delete="${item.id}" style="background:#edf2f7;color:#2d3748;padding:4px 8px;">Zmazať</button></div>`
+    )).join('');
 }
 
 function renderWaterPanel(date, waterMl, target) {
@@ -1566,6 +1700,15 @@ window.addEventListener('DOMContentLoaded', () => {
         const btn = event.target.closest('button[data-water-delete]');
         if (!btn) return;
         deleteWaterEntry(AppState.selectedDate, btn.dataset.waterDelete);
+    });
+    document.querySelectorAll('button[data-supplement-preset]').forEach(btn => {
+        btn.addEventListener('click', () => addSupplementPreset(btn.dataset.supplementPreset));
+    });
+    document.getElementById('btn-add-supplement-custom')?.addEventListener('click', addCustomSupplement);
+    document.getElementById('supplement-log-list')?.addEventListener('click', (event) => {
+        const btn = event.target.closest('button[data-supplement-delete]');
+        if (!btn) return;
+        deleteSupplementEntry(AppState.selectedDate, btn.dataset.supplementDelete);
     });
     document.getElementById('btn-refresh-food-view')?.addEventListener('click', () => refreshFoodView());
 

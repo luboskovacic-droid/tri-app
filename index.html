@@ -61,6 +61,13 @@
         .water-custom{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:6px}
         .water-log{display:grid;gap:5px;margin-top:8px;font-size:12px}
         .water-log-item{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:6px 8px}
+        .supplement-panel{border-top:1px solid #e2e8f0;margin-top:12px;padding-top:10px}
+        .supplement-title{font-size:13px;font-weight:800;color:#2d3748;margin-bottom:6px}
+        .supplement-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+        .supplement-actions button{min-height:40px}
+        .supplement-custom{display:grid;grid-template-columns:1fr 96px auto;gap:6px;margin-top:6px}
+        .supplement-log{display:grid;gap:5px;margin-top:8px;font-size:12px}
+        .supplement-log-item{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:6px 8px}
         .food-command-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
         .food-action-btn{min-height:58px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;text-align:left}
         .food-action-btn strong{font-size:15px}
@@ -146,6 +153,8 @@
             .hydration-focus{grid-template-columns:1fr}
             .hydration-ring{margin:auto}
             .water-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+            .supplement-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+            .supplement-custom{grid-template-columns:1fr}
             .food-command-grid{grid-template-columns:1fr}
             .food-date-row{grid-template-columns:1fr}
             .profile-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -375,11 +384,37 @@
                     <div id="water-log-list" class="water-log"></div>
                 </div>
             </div>
+            <div class="supplement-panel">
+                <div class="supplement-title">Doplnky bez jedla</div>
+                <div class="supplement-actions">
+                    <button type="button" class="preset-btn" data-supplement-preset="zinc" style="background:#edf2f7;color:#2d3748;">Zinok 15mg</button>
+                    <button type="button" class="preset-btn" data-supplement-preset="magnesiumBis" style="background:#edf2f7;color:#2d3748;">Mg bis 200mg</button>
+                    <button type="button" class="preset-btn" data-supplement-preset="magnesiumCitrate" style="background:#edf2f7;color:#2d3748;">Mg citrát 200mg</button>
+                    <button type="button" class="preset-btn" data-supplement-preset="potassium" style="background:#edf2f7;color:#2d3748;">Draslík 500mg</button>
+                    <button type="button" class="preset-btn" data-supplement-preset="ashwagandha" style="background:#edf2f7;color:#2d3748;">Ashwagandha 300mg</button>
+                    <button type="button" class="preset-btn" data-supplement-preset="eaa" style="background:#edf2f7;color:#2d3748;">AMK/EAA 10g</button>
+                </div>
+                <div class="supplement-custom">
+                    <select id="supplement-custom-type">
+                        <option value="amino">Ďalšie AMK (g)</option>
+                        <option value="zinc">Zinok (mg)</option>
+                        <option value="magnesium">Mg (mg)</option>
+                        <option value="potassium">Draslík (mg)</option>
+                        <option value="ashwagandha">Ashwagandha (mg)</option>
+                    </select>
+                    <input type="number" id="supplement-custom-amount" placeholder="Množstvo" min="0" step="0.1">
+                    <button type="button" id="btn-add-supplement-custom" class="preset-btn" style="background:#2d3748;color:#fff;">Pridať</button>
+                </div>
+                <div id="supplement-log-list" class="supplement-log"></div>
+            </div>
             <div class="hydration-grid">
                 <div><b id="hydration-target">0 / 0-0 l</b><span>voda / min-max</span></div>
                 <div><b id="salt-total">0g</b><span>soľ</span></div>
                 <div><b id="magnesium-total">0mg</b><span>magnézium</span></div>
                 <div><b id="potassium-total">0mg</b><span>draslík</span></div>
+                <div><b id="zinc-total">0mg</b><span>zinok</span></div>
+                <div><b id="ashwagandha-total">0mg</b><span>ashwagandha</span></div>
+                <div><b id="amino-total">0g</b><span>aminokyseliny</span></div>
             </div>
         </div>
 
