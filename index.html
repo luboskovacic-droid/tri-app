@@ -30,9 +30,14 @@
         .modal.open{display:flex}
         .modal-card{background:#fff;border-radius:10px;padding:12px;width:min(760px,96vw);max-height:90vh;overflow:auto}
         .modal-card input, .modal-card select {width:100%;box-sizing:border-box}
-        .preset-editor-wrap{width:100%;overflow-x:auto;padding-bottom:6px}
-        .preset-editor-row{display:grid;grid-template-columns:150px 120px repeat(12,86px) 88px;gap:6px;margin-bottom:8px;align-items:center;min-width:1406px}
-        .preset-editor-head{display:grid;grid-template-columns:150px 120px repeat(12,86px) 88px;gap:6px;min-width:1406px;margin-bottom:6px;font-size:11px;font-weight:800;color:#4a5568;text-transform:uppercase}
+        .preset-editor-wrap{width:100%;padding-bottom:6px}
+        .preset-editor-list{display:grid;gap:8px}
+        .preset-editor-row{display:grid;grid-template-columns:1.2fr .8fr 80px 68px 68px 68px 68px auto;gap:6px;align-items:center;border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:8px}
+        .preset-editor-row input{min-width:0}
+        .preset-editor-more{display:grid;grid-template-columns:repeat(7,minmax(70px,1fr));gap:6px;grid-column:1/-1}
+        .preset-editor-actions{display:flex;gap:6px;justify-content:flex-end}
+        .preset-quick-add{display:grid;grid-template-columns:1.2fr .8fr repeat(5,72px) auto;gap:6px;margin:8px 0}
+        .preset-editor-head{display:grid;grid-template-columns:1.2fr .8fr 80px 68px 68px 68px 68px auto;gap:6px;margin-bottom:6px;font-size:11px;font-weight:800;color:#4a5568;text-transform:uppercase}
         .food-suggest-wrap{position:relative}
         .food-suggestions{display:none;position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 18px rgba(15,23,42,.12);max-height:220px;overflow:auto}
         .food-suggestions.open{display:block}
@@ -168,6 +173,8 @@
             .supplement-custom{grid-template-columns:1fr}
             .food-command-grid{grid-template-columns:1fr}
             .food-date-row{grid-template-columns:1fr}
+            .preset-quick-add,.preset-editor-head,.preset-editor-row,.preset-editor-more{grid-template-columns:1fr}
+            .preset-editor-head{display:none}
             .profile-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
             .performance-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
             .dashboard-grid,.dashboard-actions{grid-template-columns:1fr}
@@ -875,7 +882,10 @@
 
     <div id="food-preset-modal" class="modal" aria-hidden="true">
         <div class="modal-card">
-            <h3 style="margin-top:0;">Upraviť databázu jedál</h3>
+            <div class="food-modal-head">
+                <h3>Databáza jedál</h3>
+                <button type="button" id="btn-close-preset-editor" class="food-close-btn">Zatvoriť</button>
+            </div>
             <div style="display:grid;grid-template-columns:1fr 160px;gap:8px;">
                 <input type="text" id="preset-editor-search" placeholder="Hľadať v databáze">
                 <select id="preset-macro-filter" style="width:100%;margin:0 0 8px;">
@@ -885,14 +895,23 @@
                     <option value="Tuky">Tuky</option>
                 </select>
             </div>
+            <div class="preset-quick-add">
+                <input type="text" id="preset-quick-name" placeholder="Nové jedlo">
+                <input type="text" id="preset-quick-category" placeholder="Kategória" value="Ostatné">
+                <input type="number" id="preset-quick-kcal" placeholder="kcal" min="0">
+                <input type="number" id="preset-quick-p" placeholder="B" min="0" step="0.1">
+                <input type="number" id="preset-quick-c" placeholder="S" min="0" step="0.1">
+                <input type="number" id="preset-quick-sugar" placeholder="cukry" min="0" step="0.1">
+                <input type="number" id="preset-quick-f" placeholder="T" min="0" step="0.1">
+                <button type="button" id="btn-preset-quick-add" class="preset-btn" style="background:#2d3748;color:#fff;">Pridať</button>
+            </div>
             <div class="preset-editor-wrap">
                 <div class="preset-editor-head">
-                    <span>Názov</span><span>Kat.</span><span>kcal</span><span>B</span><span>S</span><span>Cukry</span><span>T</span><span>GI</span><span>Typ S</span><span>Vlákn.</span><span>Mg</span><span>Soľ</span><span>K</span><span>AMK</span><span></span>
+                    <span>Názov</span><span>Kat.</span><span>kcal</span><span>B</span><span>S</span><span>Cukry</span><span>T</span><span></span>
                 </div>
-                <div id="preset-editor-list"></div>
+                <div id="preset-editor-list" class="preset-editor-list"></div>
             </div>
             <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
-                <button type="button" id="btn-close-preset-editor" class="preset-btn" style="background:#718096;color:#fff;">Zatvoriť</button>
                 <button type="button" id="btn-save-preset-editor" style="background:var(--primary);">Uložiť</button>
             </div>
         </div>

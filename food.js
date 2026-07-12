@@ -239,99 +239,35 @@ function renderPresetEditor(filter = 'Všetky', search = '') {
         return;
     }
 
+    const input = (value, placeholder, type = 'text', step = '') => {
+        const el = document.createElement('input');
+        el.type = type;
+        if (step) el.step = step;
+        el.value = value ?? '';
+        el.placeholder = placeholder;
+        return el;
+    };
+
     visiblePresets.forEach((preset, visibleIndex) => {
         const originalIndex = presets.findIndex((item) => item.name === preset.name && item.kcal === preset.kcal && item.p === preset.p && item.c === preset.c && item.f === preset.f);
         const row = document.createElement('div');
         row.className = 'preset-editor-row';
         row.dataset.presetIndex = originalIndex >= 0 ? originalIndex : visibleIndex;
 
-        const nameInput = document.createElement('input');
-        nameInput.value = preset.name;
-        nameInput.dataset.field = 'name';
-        nameInput.dataset.index = row.dataset.presetIndex;
-
-        const categoryInput = document.createElement('input');
-        categoryInput.value = preset.category || 'Ostatné';
-        categoryInput.dataset.field = 'category';
-        categoryInput.dataset.index = row.dataset.presetIndex;
-
-        const kcalInput = document.createElement('input');
-        kcalInput.type = 'number';
-        kcalInput.value = preset.kcal;
-        kcalInput.dataset.field = 'kcal';
-        kcalInput.dataset.index = row.dataset.presetIndex;
-
-        const pInput = document.createElement('input');
-        pInput.type = 'number';
-        pInput.step = '0.1';
-        pInput.value = preset.p;
-        pInput.dataset.field = 'p';
-        pInput.dataset.index = row.dataset.presetIndex;
-
-        const cInput = document.createElement('input');
-        cInput.type = 'number';
-        cInput.step = '0.1';
-        cInput.value = preset.c;
-        cInput.dataset.field = 'c';
-        cInput.dataset.index = row.dataset.presetIndex;
-
-        const sugarInput = document.createElement('input');
-        sugarInput.type = 'number';
-        sugarInput.step = '0.1';
-        sugarInput.value = preset.sugar || 0;
-        sugarInput.placeholder = 'Cukry';
-        sugarInput.dataset.field = 'sugar';
-        sugarInput.dataset.index = row.dataset.presetIndex;
-
-        const fInput = document.createElement('input');
-        fInput.type = 'number';
-        fInput.step = '0.1';
-        fInput.value = preset.f;
-        fInput.dataset.field = 'f';
-        fInput.dataset.index = row.dataset.presetIndex;
-
-        const giInput = document.createElement('input');
-        giInput.type = 'number';
-        giInput.value = preset.gi || 0;
-        giInput.placeholder = 'GI';
-        giInput.dataset.field = 'gi';
-        giInput.dataset.index = row.dataset.presetIndex;
-
-        const complexityInput = document.createElement('input');
-        complexityInput.value = preset.complexity || 'medium';
-        complexityInput.placeholder = 'simple/medium/complex';
-        complexityInput.dataset.field = 'complexity';
-        complexityInput.dataset.index = row.dataset.presetIndex;
-
-        const fiberInput = document.createElement('input');
-        fiberInput.type = 'number';
-        fiberInput.step = '0.1';
-        fiberInput.value = preset.fiber || 0;
-        fiberInput.placeholder = 'Vláknina';
-        fiberInput.dataset.field = 'fiber';
-        fiberInput.dataset.index = row.dataset.presetIndex;
-
-        const magnesiumInput = document.createElement('input');
-        magnesiumInput.type = 'number';
-        magnesiumInput.value = preset.magnesium || 0;
-        magnesiumInput.placeholder = 'Mg';
-
-        const saltInput = document.createElement('input');
-        saltInput.type = 'number';
-        saltInput.step = '0.1';
-        saltInput.value = preset.salt || 0;
-        saltInput.placeholder = 'Soľ';
-
-        const potassiumInput = document.createElement('input');
-        potassiumInput.type = 'number';
-        potassiumInput.value = preset.potassium || 0;
-        potassiumInput.placeholder = 'K';
-
-        const aminoInput = document.createElement('input');
-        aminoInput.type = 'number';
-        aminoInput.step = '0.1';
-        aminoInput.value = preset.amino || 0;
-        aminoInput.placeholder = 'AMK';
+        const nameInput = input(preset.name, 'Názov');
+        const categoryInput = input(preset.category || 'Ostatné', 'Kat.');
+        const kcalInput = input(preset.kcal, 'kcal', 'number');
+        const pInput = input(preset.p, 'B', 'number', '0.1');
+        const cInput = input(preset.c, 'S', 'number', '0.1');
+        const sugarInput = input(preset.sugar || 0, 'Cukry', 'number', '0.1');
+        const fInput = input(preset.f, 'T', 'number', '0.1');
+        const giInput = input(preset.gi || 0, 'GI', 'number');
+        const complexityInput = input(preset.complexity || 'medium', 'simple/medium/complex');
+        const fiberInput = input(preset.fiber || 0, 'Vláknina', 'number', '0.1');
+        const magnesiumInput = input(preset.magnesium || 0, 'Mg', 'number');
+        const saltInput = input(preset.salt || 0, 'Soľ', 'number', '0.1');
+        const potassiumInput = input(preset.potassium || 0, 'K', 'number');
+        const aminoInput = input(preset.amino || 0, 'AMK', 'number', '0.1');
 
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
@@ -341,7 +277,18 @@ function renderPresetEditor(filter = 'Všetky', search = '') {
         deleteBtn.dataset.action = 'delete-preset';
         deleteBtn.dataset.index = row.dataset.presetIndex;
 
-        row.append(nameInput, categoryInput, kcalInput, pInput, cInput, sugarInput, fInput, giInput, complexityInput, fiberInput, magnesiumInput, saltInput, potassiumInput, aminoInput, deleteBtn);
+        const more = document.createElement('details');
+        more.className = 'preset-editor-more';
+        const summary = document.createElement('summary');
+        summary.textContent = 'Detaily: GI, vláknina, minerály';
+        summary.style.cssText = 'grid-column:1/-1;font-size:12px;color:#4a5568;cursor:pointer;';
+        more.append(summary, giInput, complexityInput, fiberInput, magnesiumInput, saltInput, potassiumInput, aminoInput);
+
+        const actions = document.createElement('div');
+        actions.className = 'preset-editor-actions';
+        actions.appendChild(deleteBtn);
+
+        row.append(nameInput, categoryInput, kcalInput, pInput, cInput, sugarInput, fInput, actions, more);
         list.appendChild(row);
     });
 }
@@ -1459,6 +1406,31 @@ function saveNewFoodFromModal() {
     document.getElementById('new-food-modal')?.classList.remove('open');
 }
 
+function quickAddPresetFromEditor() {
+    const name = document.getElementById('preset-quick-name')?.value?.trim();
+    if (!name) return;
+    const carbs = Math.max(0, Number(document.getElementById('preset-quick-c')?.value) || 0);
+    const preset = normalizeFoodPreset({
+        name,
+        category: document.getElementById('preset-quick-category')?.value?.trim() || 'Ostatné',
+        kcal: Math.max(0, Number(document.getElementById('preset-quick-kcal')?.value) || 0),
+        p: Math.max(0, Number(document.getElementById('preset-quick-p')?.value) || 0),
+        c: carbs,
+        sugar: Math.min(carbs, Math.max(0, Number(document.getElementById('preset-quick-sugar')?.value) || 0)),
+        f: Math.max(0, Number(document.getElementById('preset-quick-f')?.value) || 0)
+    });
+    upsertFoodPreset(preset);
+    ['preset-quick-name', 'preset-quick-kcal', 'preset-quick-p', 'preset-quick-c', 'preset-quick-sugar', 'preset-quick-f'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const category = document.getElementById('preset-quick-category');
+    if (category) category.value = 'Ostatné';
+    const search = document.getElementById('preset-editor-search');
+    if (search) search.value = preset.name;
+    renderPresetEditor(document.getElementById('preset-macro-filter')?.value || 'Všetky', preset.name);
+}
+
 function renderFoodTimeline(date = AppState.selectedDate) {
     const el = DOM.get('food-day-timeline');
     if (!el) return;
@@ -1570,6 +1542,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('btn-close-new-food')?.addEventListener('click', () => document.getElementById('new-food-modal')?.classList.remove('open'));
     document.getElementById('btn-save-new-food')?.addEventListener('click', saveNewFoodFromModal);
+    document.getElementById('btn-preset-quick-add')?.addEventListener('click', quickAddPresetFromEditor);
     document.getElementById('new-food-modal')?.addEventListener('click', (event) => {
         if (event.target.id === 'new-food-modal') event.target.classList.remove('open');
     });
