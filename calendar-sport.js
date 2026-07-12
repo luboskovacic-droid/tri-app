@@ -487,7 +487,18 @@ function calculateAfterSessionRecovery() {
     const realTss = Math.max(0, Number(document.getElementById('real-tss')?.value) || calculateTssFromBreakdown(breakDown, duration));
     saveRecoveryLog(date, { kcal, duration, breakDown, tss: realTss, resthr: Number(document.getElementById('real-resthr')?.value) || 0, sleep: Number(document.getElementById('real-sleep')?.value) || 0 });
 
+    const atl = typeof rollingTssAverage === 'function' ? rollingTssAverage(date, 7) : 0;
+    const ctl = typeof rollingTssAverage === 'function' ? rollingTssAverage(date, 42) : 0;
+    const tsb = ctl - atl;
+    const aiVerdict = realTss > 110 && tsb < -15
+        ? 'AI: tréning bol tvrdý do únavy, zajtra uber a drž regeneráciu.'
+        : realTss > 90
+            ? 'AI: kvalitný záťažový tréning, jedlo a spánok rozhodnú o prínose.'
+            : 'AI: kontrolovaný tréning, dobrý deň na budovanie bez prepálenia.';
+
     result.innerHTML = '<strong>' + escapeHtml(settings.label) + '</strong><br>' +
+        escapeHtml(aiVerdict) + '<br>' +
+        'Forma: ATL ' + atl + ' · CTL ' + ctl + ' · TSB ' + (tsb > 0 ? '+' : '') + tsb + '.<br>' +
         'Prvá hodina: ' + Math.round(carbsFirstHours * 0.45) + 'g sacharidov, z toho max ' + Math.round(sugarFirstHour * 0.6) + 'g cukrov.<br>' +
         'Ďalšie 2-3 hodiny: ' + Math.max(0, carbsFirstHours - Math.round(carbsFirstHours * 0.45)) + 'g sacharidov, z toho max ' + Math.max(0, sugarFirstHour - Math.round(sugarFirstHour * 0.6)) + 'g cukrov.<br>' +
         'Bielkoviny po výkone: ' + protein + 'g. Ak bol tréning ľahší než plán, drž cukor nižšie a doplň skôr normálnym jedlom.';

@@ -721,6 +721,7 @@ function initDashboard() {
     renderPerformanceMetrics(date);
     renderTopTrainingBar(date);
     renderDashboardAnalysis(date);
+    if (typeof taRenderTomorrowCenter === 'function') taRenderTomorrowCenter(date);
     loadHealthForDate(date);
 }
 

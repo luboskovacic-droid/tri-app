@@ -108,6 +108,17 @@
         .ai-hub-card strong{display:block;font-size:13px}
         .ai-hub-card span,.ai-hub-card li{font-size:12px;color:#4a5568}
         .ai-hub-card ul{margin:6px 0 0 18px;padding:0}
+        .route-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        .route-map{height:220px;border:1px solid #cbd5e1;border-radius:8px;background:#eef2f7;overflow:hidden}
+        .route-map svg{width:100%;height:100%}
+        .route-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;text-align:center;margin-top:8px}
+        .route-summary b{display:block;font-size:15px;overflow-wrap:anywhere}
+        .route-summary span{font-size:11px;color:#718096}
+        .route-analysis-list{display:grid;gap:8px;margin-top:8px}
+        .route-analysis-item{border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:8px}
+        .route-analysis-item strong{display:block;font-size:13px}
+        .route-analysis-item span{display:block;font-size:12px;color:#4a5568;margin-top:2px}
+        .race-planner-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
         .performance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;text-align:center}
         .performance-grid b{display:block;font-size:16px}
         .performance-grid span{font-size:11px;color:#718096}
@@ -161,6 +172,7 @@
             .performance-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
             .dashboard-grid,.dashboard-actions{grid-template-columns:1fr}
             .ai-hub-grid{grid-template-columns:1fr}
+            .route-toolbar,.route-summary,.race-planner-grid{grid-template-columns:1fr}
             .gym-exercise-row{grid-template-columns:1fr 1fr}
             .gym-season-stats{grid-template-columns:1fr}
         }
@@ -209,6 +221,11 @@
         <div class="card">
             <h3>Čo riešiť teraz</h3>
             <div id="dashboard-analysis-list" class="dashboard-analysis"></div>
+        </div>
+
+        <div class="card">
+            <h3>Čo ma čaká zajtra</h3>
+            <div id="dashboard-tomorrow-center" class="dashboard-analysis"></div>
         </div>
 
         <div class="card">
@@ -548,6 +565,46 @@
                     <span>Obnoviť šport a nástenku</span>
                 </button>
             </div>
+        </div>
+
+        <div class="card">
+            <h3>AI analytika tréningu</h3>
+            <div class="route-toolbar">
+                <label class="food-action-btn food-action-primary" style="cursor:pointer;color:#fff;">
+                    <strong>Import GPX/FIT/TCX</strong>
+                    <span>Trasa, tep, výšky, tempo</span>
+                    <input type="file" id="route-file-input" accept=".gpx,.tcx,.fit,.json" style="display:none">
+                </label>
+                <button type="button" id="btn-route-week-plan" class="food-action-btn food-action-calm">
+                    <strong>AI týždeň</strong>
+                    <span>Plán podľa únavy</span>
+                </button>
+                <button type="button" id="btn-route-race-plan" class="food-action-btn food-action-calm">
+                    <strong>Race planner</strong>
+                    <span>Taper, carbload, forma</span>
+                </button>
+                <button type="button" id="btn-route-compare" class="food-action-btn food-action-calm">
+                    <strong>Porovnať trasy</strong>
+                    <span>Rovnaké úseky a progres</span>
+                </button>
+            </div>
+            <div id="route-map" class="route-map" style="margin-top:8px;"></div>
+            <div class="route-summary">
+                <div><b id="route-distance">0 km</b><span>vzdialenosť</span></div>
+                <div><b id="route-duration">0 min</b><span>čas</span></div>
+                <div><b id="route-pace">-</b><span>tempo/rýchlosť</span></div>
+                <div><b id="route-ascent">0 m</b><span>stúpanie</span></div>
+            </div>
+            <div id="route-analysis-output" class="route-analysis-list"></div>
+            <div class="race-planner-grid">
+                <input type="date" id="race-date-input">
+                <select id="race-priority-input">
+                    <option value="a">A súťaž</option>
+                    <option value="b">B súťaž</option>
+                    <option value="test">Test/tréningová</option>
+                </select>
+            </div>
+            <div id="race-plan-output" class="route-analysis-list"></div>
         </div>
 
         <div class="card">
@@ -951,6 +1008,7 @@
     <script src="sport.js"></script>
     <script src="food.js"></script>
     <script src="calendar-sport.js"></script>
+    <script src="training-analysis.js"></script>
     <script src="health-import.js"></script>
     <script src="gym.js"></script>
     <script src="ai-planner.js"></script>

@@ -5,6 +5,8 @@ const AI_BACKUP_KEYS = [
     'pwa_water_log',
     'pwa_supplement_log',
     'pwa_recovery_log',
+    'pwa_route_sessions',
+    'pwa_race_planner',
     'tri_user_bio_v1',
     'tri_food_presets_v1',
     'tri_gym_exercises_v1',
