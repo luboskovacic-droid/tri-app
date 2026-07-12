@@ -111,7 +111,7 @@
         .route-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px}
         .route-map{height:220px;border:1px solid #cbd5e1;border-radius:8px;background:#eef2f7;overflow:hidden}
         .route-map svg{width:100%;height:100%}
-        .route-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;text-align:center;margin-top:8px}
+        .route-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;text-align:center;margin-top:8px}
         .route-summary b{display:block;font-size:15px;overflow-wrap:anywhere}
         .route-summary span{font-size:11px;color:#718096}
         .route-analysis-list{display:grid;gap:8px;margin-top:8px}
@@ -592,9 +592,26 @@
             <div class="route-summary">
                 <div><b id="route-distance">0 km</b><span>vzdialenosť</span></div>
                 <div><b id="route-duration">0 min</b><span>čas</span></div>
+                <div><b id="route-kcal">0</b><span>kcal</span></div>
                 <div><b id="route-pace">-</b><span>tempo/rýchlosť</span></div>
                 <div><b id="route-ascent">0 m</b><span>stúpanie</span></div>
             </div>
+            <div class="race-planner-grid">
+                <select id="computer-activity-type">
+                    <option value="bike">Bike</option>
+                    <option value="run">Run</option>
+                    <option value="swim">Swim</option>
+                </select>
+                <select id="computer-event-type">
+                    <option value="training">Tréning</option>
+                    <option value="cycling-race">Súťaž - cyklistika</option>
+                    <option value="duathlon">Súťaž - duathlon</option>
+                    <option value="aquathlon">Súťaž - aquathlon</option>
+                    <option value="triathlon">Súťaž - triathlon</option>
+                </select>
+            </div>
+            <textarea id="computer-import-input" rows="5" placeholder="distance,moving time,kcal,avg speed,total time,el. gain&#10;42.5,1:35:20,1180,26.8,1:42:10,640" style="width:100%;box-sizing:border-box;margin-top:8px;border:1px solid #e2e8f0;border-radius:6px;padding:8px;font:inherit;"></textarea>
+            <button type="button" id="btn-import-computer" class="preset-btn" style="background:#2d3748;color:#fff;margin-top:6px;">Importovať cyklopočítač</button>
             <div id="route-analysis-output" class="route-analysis-list"></div>
             <div class="race-planner-grid">
                 <input type="date" id="race-date-input">

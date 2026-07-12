@@ -70,6 +70,7 @@ function taParseGpx(text) {
 
 function taParseTcx(text) {
     const xml = taParseXml(text);
+    const calories = Number(taXmlText(xml, ['Calories'])) || 0;
     const points = [...xml.getElementsByTagName('Trackpoint')].map(point => {
         const pos = point.getElementsByTagName('Position')[0];
         return {
@@ -81,7 +82,7 @@ function taParseTcx(text) {
             distance: Number(taXmlText(point, ['DistanceMeters'])) || null
         };
     }).filter(point => Number.isFinite(point.lat) && Number.isFinite(point.lon));
-    return { source: 'TCX', title: taXmlText(xml, ['Name']) || 'TCX tréning', points };
+    return { source: 'TCX', title: taXmlText(xml, ['Name']) || 'TCX tréning', points, kcal: calories };
 }
 
 function taReadFitValue(view, offset, size, baseType, little) {
@@ -106,6 +107,7 @@ function taParseFit(buffer) {
     const end = Math.min(buffer.byteLength, headerSize + dataSize);
     const defs = {};
     const points = [];
+    const meta = { kcal: 0, totalTime: 0, movingTime: 0 };
     let offset = headerSize;
     const readRecord = (def) => {
         const record = {};
@@ -113,6 +115,12 @@ function taParseFit(buffer) {
             if (offset + field.size > end) return;
             const value = taReadFitValue(view, offset, field.size, field.type, def.little);
             offset += field.size;
+            if (def.global === 18) {
+                if (field.num === 5) meta.totalTime = Math.round(value / 1000 / 60);
+                if (field.num === 7) meta.movingTime = Math.round(value / 1000 / 60);
+                if (field.num === 11) meta.kcal = value;
+                return;
+            }
             if (def.global !== 20) return;
             if (field.num === 0) record.lat = value * (180 / 2147483648);
             if (field.num === 1) record.lon = value * (180 / 2147483648);
@@ -151,7 +159,7 @@ function taParseFit(buffer) {
         if (!def) break;
         readRecord(def);
     }
-    return { source: 'FIT', title: 'FIT tréning', points };
+    return { source: 'FIT', title: 'FIT tréning', points, kcal: meta.kcal, duration: meta.movingTime || meta.totalTime };
 }
 
 function taAnalyzeRoute(parsed, fileName = 'tréning') {
@@ -177,9 +185,9 @@ function taAnalyzeRoute(parsed, fileName = 'tréning') {
     if (points.at(-1)?.distance) distance = Math.max(distance, Number(points.at(-1).distance) || 0);
     const firstTime = Date.parse(points[0]?.time || '');
     const lastTime = Date.parse(points.at(-1)?.time || '');
-    const duration = Number.isFinite(firstTime) && Number.isFinite(lastTime) && lastTime > firstTime
+    const duration = Number(parsed.duration) || (Number.isFinite(firstTime) && Number.isFinite(lastTime) && lastTime > firstTime
         ? Math.round((lastTime - firstTime) / 60000)
-        : 0;
+        : 0);
     const km = distance / 1000;
     const speed = duration > 0 ? km / (duration / 60) : 0;
     const pace = km > 0 && duration > 0 ? duration / km : 0;
@@ -195,6 +203,8 @@ function taAnalyzeRoute(parsed, fileName = 'tréning') {
         km,
         ascent,
         duration,
+        totalTime: Number(parsed.totalTime) || duration,
+        kcal: Math.max(0, Math.round(Number(parsed.kcal) || 0)),
         speed,
         pace,
         avgHr: hrCount ? Math.round(hrSum / hrCount) : 0,
@@ -259,13 +269,14 @@ function taRenderSession(session) {
     lastRouteSession = session;
     document.getElementById('route-distance').textContent = `${session.km.toFixed(2)} km`;
     document.getElementById('route-duration').textContent = session.duration ? `${session.duration} min` : '-';
+    document.getElementById('route-kcal').textContent = session.kcal ? `${Math.round(session.kcal)}` : '0';
     document.getElementById('route-pace').textContent = taFormatPace(session);
     document.getElementById('route-ascent').textContent = `${Math.round(session.ascent)} m`;
     taDrawRoute(session);
     const ai = taTrainingVerdict(session);
     taRenderItems('route-analysis-output', [
         { title: 'AI verdikt', body: ai.verdict },
-        { title: 'Výkon', body: `${session.source} · ${session.km.toFixed(2)} km · ${taFormatPace(session)} · HR ${session.avgHr || '-'} · odhad TSS ${ai.tss}` },
+        { title: 'Výkon', body: `${session.source} · ${session.km.toFixed(2)} km · ${taFormatPace(session)} · ${Math.round(session.kcal || 0)} kcal · HR ${session.avgHr || '-'} · odhad TSS ${ai.tss}` },
         { title: 'Regenerácia', body: `${ai.food} Forma: ATL ${ai.atl}, CTL ${ai.ctl}, TSB ${ai.tsb > 0 ? '+' : ''}${ai.tsb}.` }
     ]);
 }
@@ -373,12 +384,182 @@ function taHandleFile(file) {
     else reader.readAsText(file);
 }
 
+function taParseDurationToMinutes(value) {
+    if (typeof value === 'number') return value;
+    const raw = String(value || '').trim().replace(',', '.');
+    const parts = raw.split(':').map(part => Number(part));
+    if (parts.length === 3 && parts.every(Number.isFinite)) return Math.round((parts[0] * 60) + parts[1] + (parts[2] / 60));
+    if (parts.length === 2 && parts.every(Number.isFinite)) return Math.round(parts[0] + (parts[1] / 60));
+    const hourMatch = raw.match(/(\d+(?:\.\d+)?)\s*h/i);
+    const minMatch = raw.match(/(\d+(?:\.\d+)?)\s*m/i);
+    if (hourMatch || minMatch) return Math.round((Number(hourMatch?.[1]) || 0) * 60 + (Number(minMatch?.[1]) || 0));
+    return Math.round(Number(raw) || 0);
+}
+
+function taNumber(value) {
+    const normalized = String(value ?? '').replace(',', '.').replace(/[^\d.\-]/g, '');
+    return Number(normalized) || 0;
+}
+
+function taNormalizeKey(key) {
+    return String(key || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function taParseComputerExport(text) {
+    const raw = String(text || '').trim();
+    if (!raw) return null;
+    const lines = raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    const data = {};
+    if (lines.length >= 2 && lines[0].includes(',') && lines[1].includes(',')) {
+        const headers = lines[0].split(',').map(taNormalizeKey);
+        const values = lines[1].split(',').map(value => value.trim());
+        headers.forEach((header, index) => { data[header] = values[index] || ''; });
+    } else {
+        lines.forEach(line => {
+            const parts = line.split(/:|=/);
+            if (parts.length < 2) return;
+            data[taNormalizeKey(parts[0])] = parts.slice(1).join(':').trim();
+        });
+    }
+    const pick = (...keys) => {
+        for (const key of keys) {
+            const normalized = taNormalizeKey(key);
+            if (data[normalized] != null) return data[normalized];
+        }
+        return '';
+    };
+    const km = taNumber(pick('distance', 'vzdialenosť', 'dist'));
+    const movingTime = taParseDurationToMinutes(pick('moving time', 'moving_time', 'čas pohybu', 'cas pohybu'));
+    const totalTime = taParseDurationToMinutes(pick('total time', 'elapsed time', 'celkový čas', 'celkovy cas')) || movingTime;
+    const kcal = taNumber(pick('kcal', 'calories', 'kalórie', 'kalorie'));
+    const speed = taNumber(pick('avg speed', 'average speed', 'priemerná rýchlosť', 'priemerna rychlost'));
+    const ascent = taNumber(pick('el. gain', 'elevation gain', 'elev gain', 'nastúpané', 'nastupane', 'prevýšenie', 'prevysenie'));
+    if (!km && !movingTime && !kcal) return null;
+    return {
+        source: 'CYKLOPC',
+        title: 'Import cyklopočítač',
+        points: [],
+        distance: km * 1000,
+        km,
+        duration: movingTime,
+        totalTime,
+        kcal,
+        speed: speed || (movingTime ? km / (movingTime / 60) : 0),
+        pace: km && movingTime ? movingTime / km : 0,
+        ascent
+    };
+}
+
+function taTemplateFromImport(activity, eventType) {
+    if (eventType === 'duathlon') return 'duathlon';
+    if (eventType === 'aquathlon') return 'aquathlon';
+    if (eventType === 'triathlon') return 'triathlon';
+    if (activity === 'run') return 'beh';
+    if (activity === 'swim') return 'plavanie';
+    return 'bicykel';
+}
+
+function taLabelFromImport(activity, eventType) {
+    const activityLabel = activity === 'run' ? 'Run' : activity === 'swim' ? 'Swim' : 'Bike';
+    const eventLabel = {
+        training: 'tréning',
+        'cycling-race': 'súťaž cyklistika',
+        duathlon: 'súťaž duathlon',
+        aquathlon: 'súťaž aquathlon',
+        triathlon: 'súťaž triathlon'
+    }[eventType] || 'tréning';
+    return `${activityLabel} · ${eventLabel}`;
+}
+
+function taEstimateImportTss(session, activity, eventType) {
+    const duration = Number(session.duration) || 0;
+    const kcalLoad = session.kcal ? session.kcal / 10 : 0;
+    const climbLoad = activity === 'bike' ? (session.ascent || 0) / 18 : (session.ascent || 0) / 28;
+    const raceBoost = eventType === 'training' ? 1 : 1.18;
+    return Math.max(1, Math.round(((duration * 0.55) + kcalLoad + climbLoad) * raceBoost));
+}
+
+function taSaveComputerSport(session, activity, eventType) {
+    if (typeof getSportsCalendar !== 'function' || typeof saveSportsCalendar !== 'function') return;
+    const date = document.getElementById('sport-date-picker')?.value || taDate();
+    const template = taTemplateFromImport(activity, eventType);
+    const tss = taEstimateImportTss(session, activity, eventType);
+    const all = getSportsCalendar();
+    all[date] = all[date] || [];
+    all[date].push({
+        id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+        title: taLabelFromImport(activity, eventType),
+        duration: session.duration || 0,
+        totalTime: session.totalTime || session.duration || 0,
+        carbload: activity === 'swim' ? Math.round((session.kcal || 0) / 7) : Math.round((session.kcal || 0) / 5.8),
+        sugarTarget: eventType === 'training' ? Math.round((session.kcal || 0) / 28) : Math.round((session.kcal || 0) / 20),
+        proteinTarget: typeof getAthleteWeight === 'function' ? Math.round(getAthleteWeight() * 0.3) : 22,
+        kcalBurned: Math.round(session.kcal || 0),
+        tss,
+        breakDown: null,
+        template,
+        activityType: activity,
+        eventType,
+        intensityKey: eventType === 'training' ? 'medium' : 'race',
+        intensityLabel: eventType === 'training' ? 'Import tréningu' : 'Import súťaže',
+        routeSessionId: session.id,
+        avgSpeed: session.speed || 0,
+        elevationGain: Math.round(session.ascent || 0),
+        createdAt: new Date().toISOString()
+    });
+    saveSportsCalendar(all);
+}
+
+function taImportComputer() {
+    const parsed = taParseComputerExport(document.getElementById('computer-import-input')?.value || '');
+    if (!parsed) {
+        taRenderItems('route-analysis-output', [{ title: 'Import cyklopočítača', body: 'Vlož CSV alebo text s distance, moving time, kcal, avg speed, total time, el. gain.' }]);
+        return;
+    }
+    const activity = document.getElementById('computer-activity-type')?.value || 'bike';
+    const eventType = document.getElementById('computer-event-type')?.value || 'training';
+    const session = {
+        id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+        date: document.getElementById('sport-date-picker')?.value || taDate(),
+        title: taLabelFromImport(activity, eventType),
+        source: parsed.source,
+        fileName: 'manual-cyclocomputer',
+        points: [],
+        distance: parsed.distance,
+        km: parsed.km,
+        ascent: parsed.ascent,
+        duration: parsed.duration,
+        totalTime: parsed.totalTime,
+        kcal: parsed.kcal,
+        speed: parsed.speed,
+        pace: parsed.pace,
+        avgHr: 0,
+        routeHash: `${activity}-${eventType}-${Math.round(parsed.km * 10)}-${Math.round(parsed.ascent / 20)}`,
+        activityType: activity,
+        eventType,
+        savedAt: new Date().toISOString()
+    };
+    taSaveSession(session);
+    taSaveComputerSport(session, activity, eventType);
+    taRenderSession(session);
+    taRenderItems('route-analysis-output', [
+        ...Array.from(document.querySelectorAll('#route-analysis-output .route-analysis-item')).map(node => ({
+            title: node.querySelector('strong')?.textContent || '',
+            body: node.querySelector('span')?.textContent || ''
+        })),
+        { title: 'Uložené do ŠPORT', body: `${session.title} · ${session.km.toFixed(2)} km · ${session.duration} min · ${Math.round(session.kcal)} kcal · ${Math.round(session.ascent)} m.` }
+    ].filter(item => item.title));
+    if (typeof safelyRefreshUI === 'function') safelyRefreshUI();
+    if (typeof initDashboard === 'function') initDashboard();
+}
+
 function setupTrainingAnalysis() {
     taDrawRoute(null);
     document.getElementById('route-file-input')?.addEventListener('change', event => taHandleFile(event.target.files?.[0]));
     document.getElementById('btn-route-compare')?.addEventListener('click', taCompareRoutes);
     document.getElementById('btn-route-week-plan')?.addEventListener('click', taWeeklyPlan);
     document.getElementById('btn-route-race-plan')?.addEventListener('click', taRacePlan);
+    document.getElementById('btn-import-computer')?.addEventListener('click', taImportComputer);
     const savedRace = taStore(RACE_PLANNER_KEY);
     if (savedRace.raceDate) {
         const raceInput = document.getElementById('race-date-input');
